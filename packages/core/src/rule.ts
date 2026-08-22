@@ -46,6 +46,7 @@ export type GameEffect =
   | { readonly type: 'bust'; readonly playerId: PlayerId; readonly restoredScore: number }
   | { readonly type: 'turn-ended'; readonly playerId: PlayerId; readonly total: number }
   | { readonly type: 'leg-won'; readonly playerId: PlayerId }
+  | { readonly type: 'set-won'; readonly playerId: PlayerId }
   | { readonly type: 'game-won'; readonly playerId: PlayerId }
   | {
       readonly type: 'milestone'

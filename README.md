@@ -65,7 +65,20 @@ Il contient aujourd'hui :
   | **Around the Clock** | 1 à 20 puis bull, variantes simple / double / triple obligatoire                                |
 - le **solveur de sorties** : table de checkouts résolue, pas recopiée, adaptée au
   mode de sortie, au nombre de fléchettes restantes et aux doubles préférés du
-  joueur.
+  joueur ;
+- les **legs et les sets**, sous forme de règle enveloppante.
+
+### Le match est lui-même une règle de jeu
+
+Plutôt que d'apprendre les legs et les sets à chaque mode — ce qui les
+dupliquerait quatre fois aujourd'hui et une fois de plus à chaque règle maison
+— `createMatchRule(base)` enveloppe une règle dans une règle qui en enchaîne
+les manches.
+
+Tout ce qui vaut pour une règle vaut donc pour un match, gratuitement : l'undo
+multi-niveaux, la reprise après fermeture et la persistance fonctionnent sans
+une ligne de plus, parce que le journal reste une suite de fléchettes rejouée
+de bout en bout.
 
 Une suite de tests de contrat s'applique à **toutes** les règles du registre —
 sérialisation, immuabilité, undo, rejeu depuis instantané. Un mode ajouté plus
@@ -138,9 +151,11 @@ construire l'application.
 Lot 0 et lot 1 en cours. Le moteur couvre les quatre modes prioritaires,
 l'application permet de jouer une partie complète dans les deux modes de
 saisie, elle s'installe sur téléphone en fonctionnant hors ligne, et une partie
-interrompue se reprend à l'état exact.
+interrompue se reprend à l'état exact, et les matchs se jouent en legs et en
+sets.
 
-Prochaines étapes du lot 1 : legs et sets (#28), carnet de joueurs complet
-(#33), puis le test terrain de 20 parties (#78) avant d'attaquer le lot 2.
+Prochaine étape du lot 1 : le **test terrain de 20 parties** (#78), que le
+cahier des charges pose en jalon bloquant avant le lot 2 — « le retour d'usage
+sur les 20 premières parties fera probablement bouger des choix d'interface ».
 
 Voir les [issues ouvertes](https://github.com/Adrizen89/chalk/issues).

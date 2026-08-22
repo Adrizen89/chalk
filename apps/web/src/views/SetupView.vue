@@ -18,9 +18,14 @@ import {
   KILLER_DEFAULT_CONFIG,
   X01_DEFAULT_CONFIG,
   X01_PRESETS,
+  bestOf,
+  createMatchRule,
   drawKillerNumbers,
 } from '@chalk/core'
+import HandicapPicker from '@/components/HandicapPicker.vue'
 import InstallBanner from '@/components/InstallBanner.vue'
+import type { OrderMode } from '@/components/MatchOptions.vue'
+import MatchOptions from '@/components/MatchOptions.vue'
 import ResumeCard from '@/components/ResumeCard.vue'
 import type { StoredGame, StoredPlayer } from '@/db'
 import { abandonGame, findResumableGames, requestPersistentStorage } from '@/db'
@@ -66,6 +71,23 @@ const killerLives = ref(KILLER_DEFAULT_CONFIG.lives)
 const atcMode = ref<'any' | 'double' | 'triple'>('any')
 
 const inputMode = ref<InputMode>('turn')
+
+/**
+ * §4.4, #28 — format du match. Les valeurs par défaut correspondent à la
+ * partie la plus fréquente : un leg sec, pas de sets.
+ */
+const legsBestOf = ref(1)
+const setsBestOf = ref(1)
+const alternateStart = ref(true)
+const orderMode = ref<OrderMode>('manual')
+const handicapEnabled = ref(false)
+const handicaps = ref<Record<string, number>>({})
+/** Bull-off : l'ordre n'est connu qu'après le lancer (§4.4). */
+const awaitingBullOff = ref(false)
+
+/** Les legs et les sets n'ont de sens que sur les modes à manches. */
+const supportsLegs = computed(() => rule.value.id === 'x01' || rule.value.id === 'cricket')
+const supportsHandicap = computed(() => rule.value.id === 'x01')
 
 const rule = computed(() => GAME_RULES.find((entry) => entry.id === ruleId.value) ?? GAME_RULES[0]!)
 
@@ -113,10 +135,15 @@ async function addPlayer() {
   newPlayerName.value = ''
 }
 
-function buildConfig(): unknown {
+function buildConfig(players: readonly PlayerRef[]): unknown {
   switch (rule.value.id) {
     case 'x01':
-      return { startingScore: startingScore.value, inMode: inMode.value, outMode: outMode.value }
+      return {
+        startingScore: startingScore.value,
+        inMode: inMode.value,
+        outMode: outMode.value,
+        ...(handicapEnabled.value ? { handicaps: { ...handicaps.value } } : {}),
+      }
     case 'cricket':
       return { ...CRICKET_DEFAULT_CONFIG, variant: cricketVariant.value }
     case 'killer':
@@ -125,7 +152,7 @@ function buildConfig(): unknown {
         lives: killerLives.value,
         // Le tirage a lieu ici, une fois, et le résultat est figé dans la
         // configuration : le moteur reste pur et la partie reste rejouable.
-        numbers: drawKillerNumbers(selectedPlayers.value),
+        numbers: drawKillerNumbers(players),
       }
     case 'around-the-clock':
       return { mode: atcMode.value, includeBull: true }
@@ -134,9 +161,64 @@ function buildConfig(): unknown {
   }
 }
 
+/** Mélange sans muter, pour l'ordre de jeu aléatoire (§4.4). */
+function shuffled<T>(items: readonly T[]): T[] {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const a = copy[i]
+    const b = copy[j]
+    if (a === undefined || b === undefined) continue
+    copy[i] = b
+    copy[j] = a
+  }
+  return copy
+}
+
+function orderedPlayers(firstId?: string): PlayerRef[] {
+  const players = selectedPlayers.value
+  if (firstId) {
+    const first = players.find((player) => player.id === firstId)
+    if (!first) return players
+    return [first, ...players.filter((player) => player.id !== firstId)]
+  }
+  return orderMode.value === 'random' ? shuffled(players) : players
+}
+
+function launch(players: PlayerRef[]) {
+  const ruleConfig = buildConfig(players)
+  const legsToWin = supportsLegs.value ? bestOf(legsBestOf.value) : 1
+  const setsToWin = supportsLegs.value ? bestOf(setsBestOf.value) : 1
+
+  // Un leg sec n'a pas besoin de l'enveloppe de match : on garde la règle nue,
+  // ce qui garde aussi l'identifiant enregistré simple (#18).
+  if (legsToWin <= 1 && setsToWin <= 1) {
+    emit('start', rule.value, ruleConfig, players, inputMode.value)
+    return
+  }
+
+  emit(
+    'start',
+    createMatchRule(rule.value),
+    { ruleConfig, legsToWin, setsToWin, alternateStart: alternateStart.value },
+    players,
+    inputMode.value,
+  )
+}
+
 function start() {
   if (!canStart.value) return
-  emit('start', rule.value, buildConfig(), selectedPlayers.value, inputMode.value)
+  // §4.4 — bull-off : on ne peut pas deviner qui a gagné le lancer, on demande.
+  if (orderMode.value === 'bull-off' && selectedPlayers.value.length > 1) {
+    awaitingBullOff.value = true
+    return
+  }
+  launch(orderedPlayers())
+}
+
+function startAfterBullOff(winnerId: string) {
+  awaitingBullOff.value = false
+  launch(orderedPlayers(winnerId))
 }
 </script>
 
@@ -344,6 +426,34 @@ function start() {
       </div>
     </section>
 
+    <!-- §4.4, #28 — format du match. -->
+    <MatchOptions
+      v-if="supportsLegs"
+      v-model:legs="legsBestOf"
+      v-model:sets="setsBestOf"
+      v-model:alternate="alternateStart"
+      v-model:order="orderMode"
+    />
+
+    <!-- §4.4 — handicap, pour qu'un débutant puisse jouer contre un confirmé. -->
+    <section v-if="supportsHandicap && selectedPlayers.length > 0">
+      <button
+        type="button"
+        class="tap mb-2 w-full justify-between px-1 text-xs font-semibold tracking-wide text-chalk-dim uppercase"
+        :aria-expanded="handicapEnabled"
+        @click="handicapEnabled = !handicapEnabled"
+      >
+        <span>Handicap</span>
+        <span class="text-chalk">{{ handicapEnabled ? '−' : '+' }}</span>
+      </button>
+      <HandicapPicker
+        v-if="handicapEnabled"
+        v-model="handicaps"
+        :players="selectedPlayers"
+        :base-score="startingScore"
+      />
+    </section>
+
     <section v-if="!rule.requiresDartDetail">
       <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Saisie</h2>
       <div class="grid grid-cols-2 gap-2">
@@ -378,14 +488,47 @@ function start() {
     </p>
 
     <!-- §5 : l'action principale reste en bas de l'écran, sous le pouce. -->
-    <button
-      type="button"
-      class="tap mt-auto h-16 bg-accent text-lg font-bold text-slate-board disabled:opacity-30"
-      :disabled="!canStart"
-      @click="start()"
-    >
-      Lancer la partie
-    </button>
+    <div class="mt-auto">
+      <!-- §4.4 — le bull-off se joue sur la cible : l'application ne peut que
+           demander qui l'a gagné. -->
+      <div v-if="awaitingBullOff" class="rounded-2xl border border-accent/50 bg-accent/10 p-3">
+        <p class="mb-2 text-center text-sm font-semibold text-accent">Qui a gagné le bull ?</p>
+        <div class="grid gap-2" :class="selectedPlayers.length > 2 ? 'grid-cols-2' : 'grid-cols-1'">
+          <button
+            v-for="player in selectedPlayers"
+            :key="player.id"
+            type="button"
+            class="tap h-14 gap-2 bg-accent text-sm font-bold text-slate-board"
+            @click="startAfterBullOff(player.id)"
+          >
+            <span
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-board text-[0.7rem] text-chalk"
+              aria-hidden="true"
+            >
+              {{ initials(player.name) }}
+            </span>
+            {{ player.name }}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="tap mt-2 w-full text-xs text-chalk-dim"
+          @click="awaitingBullOff = false"
+        >
+          Annuler
+        </button>
+      </div>
+
+      <button
+        v-else
+        type="button"
+        class="tap h-16 w-full bg-accent text-lg font-bold text-slate-board disabled:opacity-30"
+        :disabled="!canStart"
+        @click="start()"
+      >
+        Lancer la partie
+      </button>
+    </div>
 
     <!-- §3.2 : point d'entrée permanent et discret, même après un refus de
          l'invitation — l'application n'étant sur aucun store, c'est le seul

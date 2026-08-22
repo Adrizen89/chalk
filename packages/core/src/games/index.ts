@@ -10,6 +10,7 @@
  */
 
 import type { AnyGameRule } from '../rule.js'
+import { MATCH_RULE_PREFIX, createMatchRule, isMatchRuleId } from '../match.js'
 import { aroundTheClockRule } from './around-the-clock.js'
 import { cricketRule } from './cricket.js'
 import { killerRule } from './killer.js'
@@ -22,7 +23,19 @@ export const GAME_RULES: readonly AnyGameRule[] = [
   aroundTheClockRule,
 ]
 
+/**
+ * Retrouve une règle par son identifiant.
+ *
+ * Les identifiants préfixés `match:` désignent une règle enveloppée dans un
+ * match à legs et sets (§4.4). L'enveloppe est reconstruite à la volée, ce qui
+ * permet de reprendre une partie enregistrée sans stocker autre chose que son
+ * identifiant de règle.
+ */
 export function findRule(ruleId: string): AnyGameRule | undefined {
+  if (isMatchRuleId(ruleId)) {
+    const base = findRule(ruleId.slice(MATCH_RULE_PREFIX.length))
+    return base ? createMatchRule(base) : undefined
+  }
   return GAME_RULES.find((rule) => rule.id === ruleId)
 }
 

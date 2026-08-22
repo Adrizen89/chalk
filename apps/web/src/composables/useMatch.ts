@@ -18,7 +18,8 @@
 
 import { computed, ref, shallowRef } from 'vue'
 import type { AnyGameRule, Dart, GameEffect, GameSnapshot, GameView, PlayerRef } from '@chalk/core'
-import { GameSession, findRule, suggestCheckout } from '@chalk/core'
+import type { X01State } from '@chalk/core'
+import { GameSession, baseRuleId, findRule, legStateOf, suggestCheckout } from '@chalk/core'
 import { StorageFullError, abandonGame, markPlayed, saveGame } from '@/db'
 import type { StoredGame } from '@/db'
 
@@ -112,9 +113,21 @@ export function useMatch() {
    */
   const checkout = computed(() => {
     trackSession()
-    if (!session.value || rule.value?.id !== 'x01') return null
-    return suggestCheckout(session.value.state)
+    const id = rule.value?.id
+    if (!session.value || !id || baseRule.value !== 'x01') return null
+    // Fonctionne que la partie soit un leg sec ou un match en plusieurs legs.
+    return suggestCheckout(legStateOf<X01State>(id, session.value.state))
   })
+
+  /**
+   * Identifiant du mode de jeu **sous-jacent**.
+   *
+   * Une règle enveloppée dans un match (§4.4) porte l'identifiant
+   * `match:x01`. Tout ce qui adapte l'affichage au mode — suggestions de
+   * sortie, tableau de marques du Cricket — doit raisonner là-dessus, sinon
+   * ces affichages disparaissent silencieusement dès qu'on joue en legs.
+   */
+  const baseRule = computed(() => (rule.value ? baseRuleId(rule.value.id) : null))
 
   const requiresDartDetail = computed(() => rule.value?.requiresDartDetail ?? false)
 
@@ -246,6 +259,7 @@ export function useMatch() {
 
   return {
     rule,
+    baseRule,
     gameId,
     view,
     isActive,

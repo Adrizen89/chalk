@@ -31,6 +31,7 @@ const match = useMatch()
 const {
   view,
   rule,
+  baseRule,
   isFinished,
   winner,
   canUndo,
@@ -62,7 +63,7 @@ let bannerTimer: ReturnType<typeof setTimeout> | undefined
 
 /** Score restant du joueur actif, pour valider la saisie par volée. */
 const remaining = computed(() => {
-  if (rule.value?.id !== 'x01') return undefined
+  if (baseRule.value !== 'x01') return undefined
   const active = view.value?.players.find((player) => player.isActive)
   if (!active) return undefined
   const parsed = Number(active.primary)
@@ -70,14 +71,34 @@ const remaining = computed(() => {
 })
 
 /** Modes qui affichent leur propre tableau : le score passe en bande compacte. */
-const hasOwnBoard = computed(() => rule.value?.id === 'cricket')
+const hasOwnBoard = computed(() => baseRule.value === 'cricket')
 
 const activeName = computed(() => view.value?.players.find((player) => player.isActive)?.name ?? '')
 
+/** Nom d'un joueur, pour les annonces. */
+function nameOf(playerId: string): string {
+  return view.value?.players.find((player) => player.playerId === playerId)?.name ?? ''
+}
+
+/**
+ * §4.9 — annonces : 180, bust, leg et set gagnés.
+ *
+ * L'ordre compte : un set gagné est aussi un leg gagné, et c'est le plus fort
+ * des deux qu'il faut annoncer. La fin de match, elle, a son propre écran.
+ */
 watch(lastEffects, (effects) => {
+  const types = new Set(effects.map((effect) => effect.type))
+  if (types.has('game-won')) return
+
   for (const effect of effects) {
-    if (effect.type === 'milestone' && effect.label === '180') announce('180 !')
-    if (effect.type === 'bust') announce('Bust')
+    if (effect.type === 'set-won') return announce(`Set pour ${nameOf(effect.playerId)}`)
+  }
+  for (const effect of effects) {
+    if (effect.type === 'leg-won') return announce(`Leg pour ${nameOf(effect.playerId)}`)
+  }
+  for (const effect of effects) {
+    if (effect.type === 'milestone' && effect.label === '180') return announce('180 !')
+    if (effect.type === 'bust') return announce('Bust')
   }
 })
 
@@ -149,7 +170,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
            est petit, plutôt que de le repousser hors de portée du pouce. -->
       <div class="min-h-0 flex-1 overflow-y-auto">
         <ScoreBoard :view="view" :dense="hasOwnBoard" />
-        <CricketMarks v-if="rule?.id === 'cricket'" :view="view" class="mt-2" />
+        <CricketMarks v-if="baseRule === 'cricket'" :view="view" class="mt-2" />
       </div>
 
       <!-- La saisie occupe la moitié basse en portrait, la colonne droite en
@@ -161,7 +182,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
           <TurnDarts
             v-if="effectiveInputMode === 'dart'"
             :darts="view.turnDarts"
-            :show-total="rule?.id === 'x01'"
+            :show-total="baseRule === 'x01'"
           />
           <CheckoutHint
             v-if="checkout"
