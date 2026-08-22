@@ -135,5 +135,8 @@ export function impossibleTurnTotals(): number[] {
   return impossible
 }
 
+/** Une volée compte trois fléchettes. */
+export const DARTS_PER_TURN = 3
+
 /** Score maximal d'une volée de 3 fléchettes. */
 export const MAX_TURN_TOTAL = 180

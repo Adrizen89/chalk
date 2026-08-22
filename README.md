@@ -43,13 +43,25 @@ Il contient aujourd'hui :
   sans toucher au moteur ni à l'écran de partie ;
 - la **session de jeu** (`GameSession`) : journal d'entrées, undo multi-niveaux,
   correction d'une volée validée, instantané sérialisable ;
-- le mode **X01** (301/501/701/1001 et score libre, straight/double in,
-  double/master/straight out, bust) ;
+- les quatre **modes de jeu prioritaires** du lot 1 :
+  | Mode                 | Couverture                                                                                      |
+  | -------------------- | ----------------------------------------------------------------------------------------------- |
+  | **X01**              | 301/501/701/1001 et score libre, straight/double in, double/master/straight out, bust, handicap |
+  | **Cricket**          | 15 à 20 + bull, 3 marques pour fermer, variantes _Cut-throat_ et _sans points_                  |
+  | **Killer**           | tirage ou attribution manuelle des numéros, statut killer, retrait de vies, vies paramétrables  |
+  | **Around the Clock** | 1 à 20 puis bull, variantes simple / double / triple obligatoire                                |
 - le **solveur de sorties** : table de checkouts résolue, pas recopiée, adaptée au
   mode de sortie, au nombre de fléchettes restantes et aux doubles préférés du
   joueur.
 
-Pour ajouter un mode de jeu, voir [`docs/adr/0002-moteur-de-regles-pur.md`](docs/adr/0002-moteur-de-regles-pur.md).
+Une suite de tests de contrat s'applique à **toutes** les règles du registre —
+sérialisation, immuabilité, undo, rejeu depuis instantané. Un mode ajouté plus
+tard en hérite automatiquement.
+
+Pour ajouter un mode de jeu : écrire un module implémentant `GameRule`, puis
+l'ajouter au registre dans `src/games/index.ts`. Rien d'autre à toucher — ni le
+moteur, ni l'écran de partie. Voir
+[`docs/adr/0002-moteur-de-regles-pur.md`](docs/adr/0002-moteur-de-regles-pur.md).
 
 ## État d'avancement
 

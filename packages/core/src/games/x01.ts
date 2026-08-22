@@ -11,7 +11,7 @@
 
 import type { Dart } from '../dart.js'
 import {
-  MAX_TURN_TOTAL,
+  DARTS_PER_TURN,
   dartValue,
   formatDart,
   isDouble,
@@ -36,7 +36,6 @@ import type {
 import { DART_ACCEPTED, rejectDart } from '../rule.js'
 
 export const X01_PRESETS = [301, 501, 701, 1001] as const
-export const DARTS_PER_TURN = 3
 
 export type InMode = 'straight' | 'double'
 
@@ -428,5 +427,3 @@ export function suggestCheckout(
 
   return { best, alternatives }
 }
-
-export { MAX_TURN_TOTAL }
