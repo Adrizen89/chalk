@@ -37,6 +37,7 @@ const emit = defineEmits<{
   start: [rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode]
   resume: [game: StoredGame]
   stats: []
+  training: []
 }>()
 
 const { players: book, load, add } = usePlayerBook()
@@ -230,6 +231,14 @@ function startAfterBullOff(winnerId: string) {
         <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
         <p class="text-sm text-chalk-dim">Marqueur de points</p>
       </div>
+      <!-- §4.5 — l'entraînement est un espace distinct des parties. -->
+      <button
+        type="button"
+        class="tap bg-slate-surface px-3 text-sm text-chalk"
+        @click="emit('training')"
+      >
+        Entraînement
+      </button>
       <!-- §4.7 — l'historique se consulte hors partie. -->
       <button
         type="button"

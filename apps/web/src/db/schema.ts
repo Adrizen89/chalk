@@ -13,7 +13,14 @@
  * synchronisation multi-appareil (#40) et la résolution de conflits (#4).
  */
 
-import type { GameInput, GameStats, PlayerId, PlayerRef } from '@chalk/core'
+import type {
+  CustomExerciseDefinition,
+  ExerciseMetric,
+  GameInput,
+  GameStats,
+  PlayerId,
+  PlayerRef,
+} from '@chalk/core'
 
 export type GameStatus = 'in-progress' | 'finished' | 'abandoned'
 
@@ -80,17 +87,58 @@ export interface PendingSync {
 }
 
 /**
+ * Résultat d'un exercice — §4.5, #50.
+ *
+ * « Historique par exercice, avec record personnel mis en évidence. » Le
+ * résultat porte sa propre métrique : selon l'exercice, le meilleur score est
+ * le plus élevé (Bob's 27) ou le plus bas (Tour des doubles). Sans cette
+ * information, comparer deux résultats serait impossible.
+ */
+export interface StoredExerciseResult {
+  readonly id: string
+  readonly exerciseId: string
+  readonly at: number
+  readonly metric: ExerciseMetric
+  readonly metricValue: number
+  readonly higherIsBetter: boolean
+  readonly score: number
+  readonly dartsThrown: number
+  readonly hits: number
+  readonly attempts: number
+  readonly bestStreak: number
+  /** Durée en secondes, pour les exercices chronométrés (§4.5). */
+  readonly durationSeconds?: number
+}
+
+/** Exercice créé par l'utilisateur — §4.5, #47. */
+export interface StoredCustomExercise {
+  readonly id: string
+  readonly definition: CustomExerciseDefinition
+  readonly createdAt: number
+  readonly updatedAt: number
+}
+
+/**
  * Version du schéma.
  *
  * Toute évolution ajoute une version et une migration — jamais une
  * modification en place : les utilisateurs ont déjà des parties en base, et
  * §4.4 promet de les retrouver.
  */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
-export const STORES = {
+/** Schéma initial. Conservé tel quel : Dexie rejoue les versions dans l'ordre. */
+export const STORES_V1 = {
   games: 'id, status, updatedAt, [status+updatedAt]',
   players: 'id, name, lastPlayedAt',
   settings: 'key',
   syncQueue: '++id, entity, entityId, queuedAt',
 } as const
+
+/** Version 2 — module Entraînement (§4.5). */
+export const STORES_V2 = {
+  exerciseResults: 'id, exerciseId, at, [exerciseId+at]',
+  customExercises: 'id, updatedAt',
+} as const
+
+export const STORES = { ...STORES_V1, ...STORES_V2 } as const

@@ -17,6 +17,7 @@ import UpdateBanner from '@/components/UpdateBanner.vue'
 import GameView from '@/views/GameView.vue'
 import SetupView from '@/views/SetupView.vue'
 import StatsView from '@/views/StatsView.vue'
+import TrainingView from '@/views/TrainingView.vue'
 import type { InputMode } from '@/composables/useMatch'
 import { useMatch } from '@/composables/useMatch'
 import { usePwaUpdate } from '@/composables/usePwaUpdate'
@@ -32,6 +33,8 @@ const canShowUpdate = computed(() => needRefresh.value && !isActive.value)
 
 /** §4.7 — l'historique se consulte hors partie (§5). */
 const showStats = ref(false)
+/** §4.5 — « espace distinct des parties ». */
+const showTraining = ref(false)
 
 function onStart(rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode) {
   start(rule, config, players, inputMode)
@@ -51,6 +54,13 @@ function onResume(game: StoredGame) {
 
     <GameView v-if="isActive" @quit="quit()" />
     <StatsView v-else-if="showStats" @close="showStats = false" />
-    <SetupView v-else @start="onStart" @resume="onResume" @stats="showStats = true" />
+    <TrainingView v-else-if="showTraining" @close="showTraining = false" />
+    <SetupView
+      v-else
+      @start="onStart"
+      @resume="onResume"
+      @stats="showStats = true"
+      @training="showTraining = true"
+    />
   </main>
 </template>

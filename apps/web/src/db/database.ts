@@ -4,27 +4,42 @@
 
 import Dexie from 'dexie'
 import type { EntityTable } from 'dexie'
-import type { PendingSync, StoredGame, StoredPlayer, StoredSetting } from './schema.js'
-import { STORES } from './schema.js'
+import type {
+  PendingSync,
+  StoredCustomExercise,
+  StoredExerciseResult,
+  StoredGame,
+  StoredPlayer,
+  StoredSetting,
+} from './schema.js'
+import { STORES_V1, STORES_V2 } from './schema.js'
 
 export class ChalkDatabase extends Dexie {
   games!: EntityTable<StoredGame, 'id'>
   players!: EntityTable<StoredPlayer, 'id'>
   settings!: EntityTable<StoredSetting, 'key'>
   syncQueue!: EntityTable<PendingSync, 'id'>
+  exerciseResults!: EntityTable<StoredExerciseResult, 'id'>
+  customExercises!: EntityTable<StoredCustomExercise, 'id'>
 
   constructor(name = 'chalk') {
     super(name)
 
     // Version 1 — schéma initial.
-    this.version(1).stores(STORES)
+    this.version(1).stores(STORES_V1)
 
     /*
-     * Les versions suivantes viendront ici, chacune avec son `upgrade` si les
-     * données existantes doivent être transformées. Ne jamais modifier une
-     * version déjà publiée : Dexie rejoue les migrations depuis la version
-     * installée chez l'utilisateur, pas depuis zéro.
+     * Version 2 — module Entraînement (§4.5).
+     *
+     * Deux tables ajoutées, aucune donnée existante transformée : pas de bloc
+     * `upgrade` nécessaire. Les parties et les joueurs déjà enregistrés
+     * traversent la migration sans y toucher, ce qu'un test vérifie.
+     *
+     * Ne jamais modifier une version déjà publiée : Dexie rejoue les
+     * migrations depuis la version installée chez l'utilisateur, pas depuis
+     * zéro.
      */
+    this.version(2).stores(STORES_V2)
   }
 }
 

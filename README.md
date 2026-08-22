@@ -68,7 +68,8 @@ Il contient aujourd'hui :
   mode de sortie, au nombre de fléchettes restantes et aux doubles préférés du
   joueur ;
 - les **legs et les sets**, sous forme de règle enveloppante ;
-- le **calcul des statistiques**, par rejeu du journal.
+- le **calcul des statistiques**, par rejeu du journal ;
+- l'abstraction **« exercice »** et les huit exercices d'entraînement.
 
 ### Le match est lui-même une règle de jeu
 
@@ -122,6 +123,23 @@ pas attendue, pour rester sous les 100 ms de latence de saisie du §6.
 Une partie interrompue est proposée à la reprise sur l'accueil, et reprend à
 l'état exact — scores, joueur actif, volée en cours, et jusqu'à la possibilité
 d'annuler.
+
+### Entraînement
+
+Même principe que les modes de jeu, et pour la même raison : le §4.5 demande
+que l'utilisateur puisse **créer ses propres exercices**. Un exercice
+personnalisé est une définition de **données**, exécutée par les mêmes
+implémentations que les exercices intégrés — aucun code n'est produit à la
+volée, rien n'est interprété. C'est aussi ce qui rend le partage par lien sûr :
+ce qui circule est une structure revalidée à l'import.
+
+Cinq des huit exercices intégrés s'expriment entièrement en données. C'est le
+signe que l'abstraction est au bon niveau : si un exercice maison demandait du
+code, elle serait trop étroite.
+
+« Around the Clock chronométré » et « Leg solo » réutilisent directement les
+modes de jeu correspondants, via un adaptateur. Le chronomètre reste à
+l'interface : la règle compte les fléchettes, elle ne connaît pas le temps.
 
 ### Statistiques
 

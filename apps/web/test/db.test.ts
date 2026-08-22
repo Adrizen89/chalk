@@ -70,8 +70,15 @@ const persist = (id: string, session: ReturnType<typeof newSession>) =>
   })
 
 describe('schéma', () => {
-  it('déclare les quatre tables attendues', () => {
-    expect(Object.keys(STORES).sort()).toEqual(['games', 'players', 'settings', 'syncQueue'])
+  it('déclare les tables attendues', () => {
+    expect(Object.keys(STORES).sort()).toEqual([
+      'customExercises',
+      'exerciseResults',
+      'games',
+      'players',
+      'settings',
+      'syncQueue',
+    ])
   })
 
   it('ouvre la base à la version courante', () => {
