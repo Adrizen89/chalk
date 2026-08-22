@@ -1,0 +1,22 @@
+{
+  "name": "@chalk/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Moteur de règles Chalk — pur, sans dépendance UI, réseau ou stockage.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.4",
+    "vitest": "^3.0.4"
+  }
+}
