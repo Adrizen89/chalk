@@ -2,3 +2,6 @@ dist/
 dev-dist/
 coverage/
 pnpm-lock.yaml
+
+# Généré par deploy/generate.mjs, comparé tel quel par la CI
+deploy/generated/

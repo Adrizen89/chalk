@@ -36,6 +36,7 @@ usage à une main, taille des cibles tactiles).
 ## Structure
 
 ```
+deploy               Configurations d'hébergement, générées
 packages/core        Moteur de règles — TypeScript pur, zéro dépendance
 apps/web             Application Vue 3 + Vite + Tailwind, PWA installable
 apps/web/src/db      Persistance locale (IndexedDB via Dexie)
@@ -145,6 +146,22 @@ pnpm --filter @chalk/web generate:assets
 
 Les PNG produits sont versionnés — la CI n'a pas à dépendre de `sharp` pour
 construire l'application.
+
+## Déploiement
+
+L'application est entièrement statique : publier `apps/web/dist` derrière du
+HTTPS suffit. Les configurations Apache, Netlify, Cloudflare et nginx sont
+**générées** depuis une source unique (`deploy/headers.mjs`) pour qu'elles ne
+puissent pas diverger, et la CI échoue si elles sont périmées.
+
+```bash
+pnpm generate:deploy
+```
+
+Le point sensible est le cycle de vie du service worker : `sw.js` mis en cache
+fige les utilisateurs sur une ancienne version, sans recours puisqu'il n'y a
+pas de store d'où pousser un correctif. Voir
+[`docs/deploiement.md`](docs/deploiement.md).
 
 ## État d'avancement
 

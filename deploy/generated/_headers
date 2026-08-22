@@ -1,0 +1,34 @@
+# Généré par deploy/generate.mjs — ne pas modifier à la main.
+# Cible : Cloudflare Pages et Netlify (fichier _headers).
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# Porte la version. Mis en cache, il fige les utilisateurs sur une vieille version.
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Référence les fichiers hachés de la version courante.
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Change rarement, mais doit pouvoir évoluer sans attendre l'expiration.
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600
+
+# Noms hachés : un contenu différent produit un nom différent.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Stables, mais sans hachage dans le nom.
+/icons/*
+  Cache-Control: public, max-age=604800
+
+# Lus par iOS au lancement, jamais par le service worker.
+/splash/*
+  Cache-Control: public, max-age=604800

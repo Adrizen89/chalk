@@ -1,0 +1,73 @@
+name: Build de déploiement
+
+# Produit un dossier prêt à mettre en ligne à chaque poussée sur `main`.
+#
+# L'hébergeur n'est pas encore tranché (#2). Plutôt que de câbler un
+# déploiement automatique vers une cible inconnue, ce workflow produit un
+# artefact téléchargeable : on peut le déposer par FTP dès aujourd'hui, et
+# brancher un déploiement continu le jour où la cible est choisie, sans rien
+# changer aux étapes de build.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Chemin de base (/ pour un domaine dédié)'
+        required: false
+        default: '/'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Les configurations d'hébergement sont générées, pas écrites à la main :
+      # la CI vérifie qu'elles sont à jour dans le dépôt.
+      - name: Vérifier les configurations d'hébergement
+        run: |
+          pnpm generate:deploy
+          git diff --exit-code deploy/generated \
+            || (echo "::error::deploy/generated est périmé. Lancez 'pnpm generate:deploy' et committez." && exit 1)
+
+      - name: Construire
+        env:
+          VITE_BASE: ${{ inputs.base || '/' }}
+        run: pnpm build
+
+      # Apache est la cible la plus probable (Hostinger). Le fichier est déposé
+      # dans le build pour qu'un simple envoi FTP suffise.
+      - name: Ajouter la configuration Apache au build
+        run: cp deploy/generated/.htaccess apps/web/dist/.htaccess
+
+      - name: Résumé
+        run: |
+          {
+            echo "### Build prêt à déployer"
+            echo ""
+            echo "| Fichier | Taille |"
+            echo "|---|---|"
+            find apps/web/dist -maxdepth 2 -type f -printf '| `%P` | %s octets |\n' \
+              | sort | head -25
+            echo ""
+            echo "Poids total : $(du -sh apps/web/dist | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chalk-dist
+          path: apps/web/dist
+          # Un mois suffit : chaque poussée sur main en produit un nouveau.
+          retention-days: 30
+          include-hidden-files: true

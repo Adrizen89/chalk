@@ -3,8 +3,22 @@ import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+// Mêmes en-têtes qu'en production : c'est le seul moyen de vérifier avant
+// déploiement que la politique de sécurité ne casse pas l'application (#77).
+import { SECURITY_HEADERS } from '../../deploy/headers.mjs'
+
+/**
+ * Chemin de base du déploiement.
+ *
+ * `/` pour un domaine dédié — le cas prévu. Une autre valeur permet de servir
+ * l'application depuis un sous-répertoire, mais il faut alors que le manifeste,
+ * le `scope` du service worker et les liens des icônes suivent : c'est
+ * pourquoi tout en dérive plutôt que d'être écrit en dur.
+ */
+const base = process.env.VITE_BASE ?? '/'
 
 export default defineConfig({
+  base,
   plugins: [
     vue(),
     tailwindcss(),
@@ -22,8 +36,8 @@ export default defineConfig({
           'Marqueur de points aux fléchettes : X01, Cricket, Killer, Around the Clock. Fonctionne hors ligne.',
         lang: 'fr',
         dir: 'ltr',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         // §3.2 : aucune barre d'adresse ni barre de navigation visible.
         display: 'standalone',
         /*
@@ -38,10 +52,10 @@ export default defineConfig({
         background_color: '#0b1220',
         categories: ['games', 'sports', 'utilities'],
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: `${base}icons/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: `${base}icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
           {
-            src: '/icons/icon-maskable-512.png',
+            src: `${base}icons/icon-maskable-512.png`,
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
@@ -61,7 +75,7 @@ export default defineConfig({
           // plugin. Sans cette exclusion, elles y figurent deux fois.
           '**/icons/icon-*.png',
         ],
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         cleanupOutdatedCaches: true,
       },
       devOptions: {
@@ -79,5 +93,9 @@ export default defineConfig({
   server: {
     // §5 : on teste sur un vrai téléphone, pas seulement sur le poste de dev.
     host: true,
+  },
+  preview: {
+    host: true,
+    headers: SECURITY_HEADERS,
   },
 })
