@@ -36,6 +36,7 @@ import { usePlayerBook, avatarColor, initials } from '@/composables/usePlayerBoo
 const emit = defineEmits<{
   start: [rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode]
   resume: [game: StoredGame]
+  stats: []
 }>()
 
 const { players: book, load, add } = usePlayerBook()
@@ -224,9 +225,19 @@ function startAfterBullOff(winnerId: string) {
 
 <template>
   <div class="mx-auto flex min-h-full w-full max-w-lg flex-col gap-5 px-4 pt-4 pb-6">
-    <header>
-      <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
-      <p class="text-sm text-chalk-dim">Marqueur de points</p>
+    <header class="flex items-start gap-2">
+      <div class="flex-1">
+        <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
+        <p class="text-sm text-chalk-dim">Marqueur de points</p>
+      </div>
+      <!-- §4.7 — l'historique se consulte hors partie. -->
+      <button
+        type="button"
+        class="tap bg-slate-surface px-3 text-sm text-chalk"
+        @click="emit('stats')"
+      >
+        Stats
+      </button>
     </header>
 
     <!-- §4.4, #31 : la reprise passe avant la configuration. Retrouver son

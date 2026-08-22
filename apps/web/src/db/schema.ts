@@ -13,7 +13,7 @@
  * synchronisation multi-appareil (#40) et la résolution de conflits (#4).
  */
 
-import type { GameInput, PlayerId, PlayerRef } from '@chalk/core'
+import type { GameInput, GameStats, PlayerId, PlayerRef } from '@chalk/core'
 
 export type GameStatus = 'in-progress' | 'finished' | 'abandoned'
 
@@ -32,6 +32,16 @@ export interface StoredGame {
   readonly winnerId: PlayerId | null
   readonly createdAt: number
   readonly updatedAt: number
+  /**
+   * Statistiques de la partie — §4.7, #43.
+   *
+   * Calculées une fois, à la fin de la partie, puis conservées : le §4.7
+   * demande que « l'affichage ne recalcule pas l'intégralité de l'historique ».
+   * Absentes des parties en cours, et des parties enregistrées avant #43 — le
+   * champ n'étant pas indexé, aucune migration de schéma n'est nécessaire, et
+   * les anciennes parties se recalculent à la première lecture.
+   */
+  readonly stats?: GameStats
 }
 
 /**

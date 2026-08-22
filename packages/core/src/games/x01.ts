@@ -193,6 +193,15 @@ export const x01Rule: GameRule<X01Config, X01State> = {
     if (busts) {
       // §4.2 — bust : retour au score du début de volée, fin de tour immédiate.
       effects.push({ type: 'bust', playerId: player.id, restoredScore: state.turnStartScore })
+
+      /*
+       * §4.7 — une volée bustée ne marque rien, y compris les fléchettes déjà
+       * comptées avant le bust. Sans ce retrait, la moyenne 3 fléchettes — que
+       * le cahier des charges appelle « la métrique reine » — récompenserait le
+       * joueur pour des points qu'il vient de perdre.
+       */
+      const scoredThisTurn = state.turnStartScore - player.score
+
       return endTurn(
         state,
         {
@@ -200,6 +209,7 @@ export const x01Rule: GameRule<X01Config, X01State> = {
           score: state.turnStartScore,
           hasOpened: player.hasOpened,
           dartsThrown,
+          pointsScored: player.pointsScored - scoredThisTurn,
           turnTotals: [...player.turnTotals, 0],
         },
         effects,

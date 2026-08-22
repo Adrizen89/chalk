@@ -10,12 +10,13 @@
  * pendant une partie (§5) : mise à jour de l'application et invitation à
  * l'installation.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { AnyGameRule, PlayerRef } from '@chalk/core'
 import type { StoredGame } from '@/db'
 import UpdateBanner from '@/components/UpdateBanner.vue'
 import GameView from '@/views/GameView.vue'
 import SetupView from '@/views/SetupView.vue'
+import StatsView from '@/views/StatsView.vue'
 import type { InputMode } from '@/composables/useMatch'
 import { useMatch } from '@/composables/useMatch'
 import { usePwaUpdate } from '@/composables/usePwaUpdate'
@@ -28,6 +29,9 @@ const { needRefresh, applying, applyUpdate, postpone } = usePwaUpdate()
  * recharge la page — la proposer au milieu d'un leg ferait perdre la partie.
  */
 const canShowUpdate = computed(() => needRefresh.value && !isActive.value)
+
+/** §4.7 — l'historique se consulte hors partie (§5). */
+const showStats = ref(false)
 
 function onStart(rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode) {
   start(rule, config, players, inputMode)
@@ -46,6 +50,7 @@ function onResume(game: StoredGame) {
     </div>
 
     <GameView v-if="isActive" @quit="quit()" />
-    <SetupView v-else @start="onStart" @resume="onResume" />
+    <StatsView v-else-if="showStats" @close="showStats = false" />
+    <SetupView v-else @start="onStart" @resume="onResume" @stats="showStats = true" />
   </main>
 </template>

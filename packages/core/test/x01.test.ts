@@ -332,3 +332,48 @@ describe('combinaisons entrée × sortie', () => {
     },
   )
 })
+
+describe('bust et moyenne (§4.7)', () => {
+  /**
+   * Régression : une volée bustée ne marque rien, y compris les fléchettes
+   * déjà comptées avant le bust. Le moteur gardait ces points, et la moyenne
+   * 3 fléchettes — « la métrique reine » du §4.7 — récompensait le joueur
+   * pour des points qu'il venait de perdre.
+   */
+  it('ne compte aucun point pour une volée bustée', () => {
+    const session = newSession({ startingScore: 100 })
+    session.applyDart(T(20)) // 100 → 40
+    session.applyDart(S(10)) // 40 → 30
+    session.applyDart(T(20)) // bust : retour à 100
+
+    const joueur = session.state.players[0]!
+    expect(joueur.score).toBe(100)
+    expect(joueur.pointsScored).toBe(0)
+    expect(joueur.dartsThrown).toBe(3)
+    expect(threeDartAverage(joueur)).toBe(0)
+  })
+
+  it('conserve les points des volées précédentes', () => {
+    const session = newSession({ startingScore: 501 })
+    session.applyTurnTotal(180) // Adrien marque 180
+    session.applyTurnTotal(26) // Bruno
+    session.applyDart(T(20)) // Adrien : 321 → 261
+    session.applyDart(T(20)) // 261 → 201
+    session.applyDart(T(20)) // 201 → 141, pas de bust
+
+    expect(session.state.players[0]!.pointsScored).toBe(360)
+  })
+
+  it('ne retire que la volée en cours quand elle buste', () => {
+    const session = newSession({ startingScore: 200 })
+    session.applyDart(T(20)) // 200 → 140
+    session.applyDart(T(20)) // 140 → 80
+    session.applyDart(S(20)) // 80 → 60, fin de volée : 140 marqués
+    session.applyTurnTotal(26) // Bruno
+
+    session.applyDart(T(20)) // 60 → 0 ? non : 60-60 = 0 sur un triple → bust
+    const joueur = session.state.players[0]!
+    expect(joueur.pointsScored).toBe(140)
+    expect(joueur.score).toBe(60)
+  })
+})

@@ -67,7 +67,8 @@ Il contient aujourd'hui :
 - le **solveur de sorties** : table de checkouts résolue, pas recopiée, adaptée au
   mode de sortie, au nombre de fléchettes restantes et aux doubles préférés du
   joueur ;
-- les **legs et les sets**, sous forme de règle enveloppante.
+- les **legs et les sets**, sous forme de règle enveloppante ;
+- le **calcul des statistiques**, par rejeu du journal.
 
 ### Le match est lui-même une règle de jeu
 
@@ -122,6 +123,21 @@ Une partie interrompue est proposée à la reprise sur l'accueil, et reprend à
 l'état exact — scores, joueur actif, volée en cours, et jusqu'à la possibilité
 d'annuler.
 
+### Statistiques
+
+Tout est recalculé **depuis le journal d'entrées**, jamais compté au vol pendant
+la partie. Deux raisons : une volée annulée ou corrigée doit disparaître des
+statistiques, et le moteur doit rester seul dépositaire des règles — le calcul
+rejoue et observe, il ne réimplémente ni les busts ni les fins de leg.
+
+Conséquence utile : les statistiques ne font pas confiance au vainqueur
+enregistré. Une partie dont le journal ne descend pas à zéro n'est pas comptée
+comme gagnée, quoi que dise l'enregistrement.
+
+Le résultat par partie est calculé une fois, à la fin, puis conservé —
+l'agrégation n'est plus qu'une somme (§4.7 : « l'affichage ne recalcule pas
+l'intégralité de l'historique »).
+
 ### PWA
 
 L'application s'installe sur l'écran d'accueil et se comporte comme une
@@ -175,6 +191,9 @@ l'application permet de jouer une partie complète dans les deux modes de
 saisie, elle s'installe sur téléphone en fonctionnant hors ligne, et une partie
 interrompue se reprend à l'état exact, et les matchs se jouent en legs et en
 sets.
+
+Le lot 2 est entamé par sa partie locale : historique et statistiques (#42,
+#43, #44), qui ne dépendent d'aucun serveur.
 
 Prochaine étape du lot 1 : le **test terrain de 20 parties** (#78), que le
 cahier des charges pose en jalon bloquant avant le lot 2 — « le retour d'usage

@@ -22,6 +22,14 @@ import {
 } from '@/db/games'
 import { addPlayer, listPlayers, markPlayed, migrateLegacyPlayers } from '@/db/players'
 import { getSetting, setSetting } from '@/db/settings'
+import {
+  averageOverTime,
+  careerStats,
+  ensureGameStats,
+  finishedGamesWithStats,
+  headToHead,
+  playersWithHistory,
+} from '@/db/stats'
 import { SCHEMA_VERSION, STORES } from '@/db/schema'
 import { randomId } from '@/lib/id'
 
@@ -443,5 +451,103 @@ describe('génération d’identifiants hors contexte sécurisé', () => {
     } finally {
       crypto.randomUUID = vrai
     }
+  })
+})
+
+describe('statistiques persistées (§4.7, #43)', () => {
+  /** Joue un 40 gagné par le joueur `a` et l'enregistre comme terminé. */
+  async function partieTerminee(id: string, startingScore = 40) {
+    const session = newSession(startingScore)
+    session.applyDart(D(startingScore / 2))
+    await persist(id, session)
+    return session
+  }
+
+  it('calcule et conserve les statistiques à la fin de la partie', async () => {
+    await partieTerminee('g1')
+    const stored = await getGame('g1')
+    expect(stored?.status).toBe('finished')
+    expect(stored?.stats).toBeDefined()
+    expect(stored?.stats?.winnerId).toBe('a')
+  })
+
+  it('ne calcule rien tant que la partie est en cours', async () => {
+    const session = newSession(501)
+    session.applyDart(T(20))
+    await persist('g1', session)
+    expect((await getGame('g1'))?.stats).toBeUndefined()
+  })
+
+  it('recalcule les statistiques d’une partie enregistrée avant #43', async () => {
+    await partieTerminee('g1')
+    // On simule une partie d'avant : on retire les statistiques stockées.
+    const stored = (await getGame('g1'))!
+    const { stats: _, ...sansStats } = stored
+    await database.games.put(sansStats as typeof stored)
+    expect((await getGame('g1'))?.stats).toBeUndefined()
+
+    const recalcule = await ensureGameStats((await getGame('g1'))!)
+    expect(recalcule?.winnerId).toBe('a')
+    // Et la valeur est désormais conservée.
+    expect((await getGame('g1'))?.stats).toBeDefined()
+  })
+
+  it('agrège la carrière d’un joueur à travers les parties', async () => {
+    await partieTerminee('g1', 40)
+    await partieTerminee('g2', 32)
+
+    const career = await careerStats('a')
+    expect(career?.gamesPlayed).toBe(2)
+    expect(career?.gamesWon).toBe(2)
+    expect(career?.bestCheckout).toBe(40)
+  })
+
+  it('ignore les parties en cours et abandonnées', async () => {
+    await partieTerminee('finie')
+
+    const enCours = newSession(501)
+    enCours.applyDart(T(20))
+    await persist('en-cours', enCours)
+
+    const abandonnee = newSession(501)
+    abandonnee.applyDart(T(20))
+    await persist('abandonnee', abandonnee)
+    await abandonGame('abandonnee')
+
+    expect(await finishedGamesWithStats()).toHaveLength(1)
+    expect((await careerStats('a'))?.gamesPlayed).toBe(1)
+  })
+
+  it('liste les joueurs ayant un historique', async () => {
+    await partieTerminee('g1')
+    const players = await playersWithHistory()
+    expect(players.map((player) => player.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('construit la courbe d’évolution de la moyenne (§4.7)', async () => {
+    await partieTerminee('g1', 40)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    await partieTerminee('g2', 32)
+
+    const courbe = await averageOverTime('a')
+    expect(courbe).toHaveLength(2)
+    expect(courbe[0]!.at).toBeLessThanOrEqual(courbe[1]!.at)
+    expect(courbe.every((point) => point.average > 0)).toBe(true)
+  })
+
+  it('établit le bilan des confrontations (§4.7)', async () => {
+    await partieTerminee('g1', 40)
+    await partieTerminee('g2', 32)
+
+    const bilan = await headToHead('a', 'b')
+    expect(bilan.games).toBe(2)
+    expect(bilan.winsA).toBe(2)
+    expect(bilan.winsB).toBe(0)
+    expect(bilan.averageA).toBeGreaterThan(0)
+  })
+
+  it('ne compte pas une confrontation où l’un des deux n’a pas joué', async () => {
+    await partieTerminee('g1')
+    expect((await headToHead('a', 'inconnu')).games).toBe(0)
   })
 })

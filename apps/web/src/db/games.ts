@@ -7,7 +7,8 @@
  * Une sortie propre, sur une batterie vide, n'arrive jamais.
  */
 
-import type { GameSnapshot, PlayerId } from '@chalk/core'
+import type { GameSnapshot, GameStats, PlayerId } from '@chalk/core'
+import { computeGameStats, findRule } from '@chalk/core'
 import { db, isQuotaError } from './database.js'
 import type { GameStatus, StoredGame, StoredInputMode } from './schema.js'
 
@@ -49,6 +50,38 @@ export interface SaveGameInput {
  * ordonne l'historique (§4.7), et le réécrire ferait remonter une vieille
  * partie en tête à chaque volée.
  */
+/**
+ * Calcule les statistiques d'une partie — §4.7, #43.
+ *
+ * Rejoue le journal par le moteur : rien n'est recompté à la main, et une
+ * volée annulée ou corrigée (§4.3) disparaît naturellement du résultat.
+ *
+ * Retourne `undefined` si le mode de jeu n'existe plus dans cette version :
+ * une partie illisible ne doit pas empêcher d'afficher les autres.
+ */
+export function statsForGame(game: {
+  ruleId: string
+  config: unknown
+  players: StoredGame['players']
+  inputs: StoredGame['inputs']
+  stats?: GameStats
+}): GameStats | undefined {
+  if (game.stats) return game.stats
+  const rule = findRule(game.ruleId)
+  if (!rule) return undefined
+  try {
+    return computeGameStats({
+      rule,
+      config: game.config,
+      players: game.players,
+      inputs: game.inputs,
+    })
+  } catch (error) {
+    console.error('Calcul des statistiques impossible', error)
+    return undefined
+  }
+}
+
 export async function saveGame(input: SaveGameInput): Promise<void> {
   const now = Date.now()
   try {
@@ -65,7 +98,14 @@ export async function saveGame(input: SaveGameInput): Promise<void> {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     }
-    await db().games.put(record)
+
+    /*
+     * Les statistiques ne sont calculées qu'une fois la partie terminée. Les
+     * recalculer à chaque fléchette coûterait un rejeu complet du journal dans
+     * le chemin de saisie, que §6 borne à 100 ms.
+     */
+    const stats = input.status === 'finished' ? statsForGame(record) : undefined
+    await db().games.put(stats ? { ...record, stats } : record)
   } catch (error) {
     if (isQuotaError(error)) throw new StorageFullError()
     throw error
