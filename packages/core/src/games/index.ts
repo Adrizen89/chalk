@@ -12,15 +12,31 @@
 import type { AnyGameRule } from '../rule.js'
 import { MATCH_RULE_PREFIX, createMatchRule, isMatchRuleId } from '../match.js'
 import { aroundTheClockRule } from './around-the-clock.js'
+import { bobs27Rule } from './bobs27.js'
 import { cricketRule } from './cricket.js'
+import { golfRule } from './golf.js'
+import { halveItRule } from './halve-it.js'
+import { highScoreRule } from './high-score.js'
 import { killerRule } from './killer.js'
+import { shanghaiRule } from './shanghai.js'
 import { x01Rule } from './x01.js'
 
+/**
+ * Modes de jeu disponibles.
+ *
+ * Les quatre premiers sont les modes prioritaires du lot 1 (§4.2), les cinq
+ * suivants les modes « souhaités ». L'ordre est celui de l'affichage.
+ */
 export const GAME_RULES: readonly AnyGameRule[] = [
   x01Rule,
   cricketRule,
   killerRule,
   aroundTheClockRule,
+  shanghaiRule,
+  halveItRule,
+  highScoreRule,
+  golfRule,
+  bobs27Rule,
 ]
 
 /**
@@ -43,3 +59,8 @@ export * from './x01.js'
 export * from './cricket.js'
 export * from './killer.js'
 export * from './around-the-clock.js'
+export * from './shanghai.js'
+export * from './halve-it.js'
+export * from './high-score.js'
+export * from './golf.js'
+export * from './bobs27.js'

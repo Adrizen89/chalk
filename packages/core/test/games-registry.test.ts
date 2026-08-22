@@ -29,12 +29,21 @@ function configFor(ruleId: string, defaultConfig: unknown): unknown {
 
 describe('registre des modes de jeu', () => {
   it('expose les quatre modes prioritaires du lot 1 (§4.2)', () => {
-    expect(GAME_RULES.map((rule) => rule.id).sort()).toEqual([
-      'around-the-clock',
-      'cricket',
-      'killer',
-      'x01',
-    ])
+    const ids = GAME_RULES.map((rule) => rule.id)
+    for (const id of ['x01', 'cricket', 'killer', 'around-the-clock']) {
+      expect(ids).toContain(id)
+    }
+  })
+
+  it('expose les cinq modes souhaités du §4.2', () => {
+    const ids = GAME_RULES.map((rule) => rule.id)
+    for (const id of ['shanghai', 'halve-it', 'high-score', 'golf', 'bobs-27']) {
+      expect(ids).toContain(id)
+    }
+  })
+
+  it('n’en expose pas d’autres', () => {
+    expect(GAME_RULES).toHaveLength(9)
   })
 
   it('donne à chaque règle un identifiant unique', () => {

@@ -13,9 +13,14 @@
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import type { AnyGameRule, PlayerRef } from '@chalk/core'
 import {
+  BOBS_27_DEFAULT_CONFIG,
   CRICKET_DEFAULT_CONFIG,
   GAME_RULES,
+  GOLF_DEFAULT_CONFIG,
+  HALVE_IT_DEFAULT_CONFIG,
+  HIGH_SCORE_DEFAULT_CONFIG,
   KILLER_DEFAULT_CONFIG,
+  SHANGHAI_DEFAULT_CONFIG,
   X01_DEFAULT_CONFIG,
   X01_PRESETS,
   bestOf,
@@ -71,6 +76,16 @@ const cricketVariant = ref(CRICKET_DEFAULT_CONFIG.variant)
 const killerLives = ref(KILLER_DEFAULT_CONFIG.lives)
 // Around the Clock
 const atcMode = ref<'any' | 'double' | 'triple'>('any')
+// Shanghai
+const shanghaiRounds = ref(SHANGHAI_DEFAULT_CONFIG.rounds)
+// High Score
+const highScoreRounds = ref(HIGH_SCORE_DEFAULT_CONFIG.rounds)
+// Golf
+const golfHoles = ref(GOLF_DEFAULT_CONFIG.holes)
+// Halve It
+const halveItStart = ref(HALVE_IT_DEFAULT_CONFIG.startingScore)
+// Bob's 27
+const bobsStopOnNegative = ref(BOBS_27_DEFAULT_CONFIG.stopOnNegative)
 
 const inputMode = ref<InputMode>('turn')
 
@@ -87,8 +102,11 @@ const handicaps = ref<Record<string, number>>({})
 /** Bull-off : l'ordre n'est connu qu'après le lancer (§4.4). */
 const awaitingBullOff = ref(false)
 
-/** Les legs et les sets n'ont de sens que sur les modes à manches. */
-const supportsLegs = computed(() => rule.value.id === 'x01' || rule.value.id === 'cricket')
+/**
+ * Tous les modes acceptent les legs et les sets : l'enveloppe de match (§4.4)
+ * est générique, elle ne connaît pas la règle qu'elle enchaîne.
+ */
+const supportsLegs = computed(() => true)
 const supportsHandicap = computed(() => rule.value.id === 'x01')
 
 const rule = computed(() => GAME_RULES.find((entry) => entry.id === ruleId.value) ?? GAME_RULES[0]!)
@@ -158,6 +176,16 @@ function buildConfig(players: readonly PlayerRef[]): unknown {
       }
     case 'around-the-clock':
       return { mode: atcMode.value, includeBull: true }
+    case 'shanghai':
+      return { ...SHANGHAI_DEFAULT_CONFIG, rounds: shanghaiRounds.value }
+    case 'halve-it':
+      return { ...HALVE_IT_DEFAULT_CONFIG, startingScore: halveItStart.value }
+    case 'high-score':
+      return { rounds: highScoreRounds.value }
+    case 'golf':
+      return { holes: golfHoles.value }
+    case 'bobs-27':
+      return { stopOnNegative: bobsStopOnNegative.value }
     default:
       return rule.value.defaultConfig
   }
@@ -263,12 +291,12 @@ function startAfterBullOff(winnerId: string) {
 
     <section>
       <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Mode de jeu</h2>
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-3 gap-2">
         <button
           v-for="entry in GAME_RULES"
           :key="entry.id"
           type="button"
-          class="tap h-14 px-3 text-sm"
+          class="tap h-14 px-1 text-center text-xs leading-tight"
           :class="
             ruleId === entry.id
               ? 'bg-accent font-bold text-slate-board'
@@ -444,6 +472,116 @@ function startAfterBullOff(winnerId: string) {
           {{ mode.label }}
         </button>
       </div>
+    </section>
+
+    <section v-else-if="rule.id === 'shanghai'">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Manches</h2>
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          v-for="choice in [7, 10, 20]"
+          :key="choice"
+          type="button"
+          class="tap num text-sm"
+          :class="
+            shanghaiRounds === choice
+              ? 'bg-accent font-bold text-slate-board'
+              : 'bg-slate-surface text-chalk'
+          "
+          @click="shanghaiRounds = choice"
+        >
+          1 à {{ choice }}
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-chalk-dim">
+        Simple + double + triple du numéro dans la même volée : victoire immédiate.
+      </p>
+    </section>
+
+    <section v-else-if="rule.id === 'halve-it'">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">
+        Score de départ
+      </h2>
+      <div class="grid grid-cols-3 gap-2">
+        <button
+          v-for="choice in [40, 100, 200]"
+          :key="choice"
+          type="button"
+          class="tap num text-sm"
+          :class="
+            halveItStart === choice
+              ? 'bg-accent font-bold text-slate-board'
+              : 'bg-slate-surface text-chalk'
+          "
+          @click="halveItStart = choice"
+        >
+          {{ choice }}
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-chalk-dim">
+        20, 19, doubles, 18, triples, 17, bull. Une manche sans touché divise le score par deux.
+      </p>
+    </section>
+
+    <section v-else-if="rule.id === 'high-score'">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Manches</h2>
+      <div class="grid grid-cols-4 gap-2">
+        <button
+          v-for="choice in [5, 10, 15, 20]"
+          :key="choice"
+          type="button"
+          class="tap num text-sm"
+          :class="
+            highScoreRounds === choice
+              ? 'bg-accent font-bold text-slate-board'
+              : 'bg-slate-surface text-chalk'
+          "
+          @click="highScoreRounds = choice"
+        >
+          {{ choice }}
+        </button>
+      </div>
+    </section>
+
+    <section v-else-if="rule.id === 'golf'">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Trous</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          v-for="choice in [9, 18]"
+          :key="choice"
+          type="button"
+          class="tap num text-sm"
+          :class="
+            golfHoles === choice
+              ? 'bg-accent font-bold text-slate-board'
+              : 'bg-slate-surface text-chalk'
+          "
+          @click="golfHoles = choice"
+        >
+          {{ choice }} trous
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-chalk-dim">
+        Triple 1 coup, double 2, simple 3, manqué 5. La meilleure fléchette du trou compte, le score
+        le plus bas gagne.
+      </p>
+    </section>
+
+    <section v-else-if="rule.id === 'bobs-27'">
+      <button
+        type="button"
+        class="tap w-full justify-between bg-slate-surface px-3 text-sm text-chalk"
+        role="switch"
+        :aria-checked="bobsStopOnNegative"
+        @click="bobsStopOnNegative = !bobsStopOnNegative"
+      >
+        <span>S'arrêter sous zéro</span>
+        <span class="text-xs font-bold" :class="bobsStopOnNegative ? 'text-ok' : 'text-chalk-dim'">
+          {{ bobsStopOnNegative ? 'Oui' : 'Non' }}
+        </span>
+      </button>
+      <p class="mt-2 text-xs text-chalk-dim">
+        D1 à D20 puis le bull, départ à 27 points. Une manche sans touché coûte la valeur du double.
+      </p>
     </section>
 
     <!-- §4.4, #28 — format du match. -->
