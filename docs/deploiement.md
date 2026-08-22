@@ -52,7 +52,35 @@ automatiquement — ne jamais les modifier à la main.
 
 ## 3. Publier
 
-### Option A — Script local (le plus direct)
+La publication se fait **à la main**. Aucun déploiement automatique n'est
+câblé : rien ne part en ligne sans une action délibérée.
+
+### Option A — Archive ZIP et hPanel (recommandé)
+
+```bash
+pnpm package:release
+```
+
+Produit `chalk-AAAAMMJJ-HHMM.zip`, contenant le build **et le `.htaccess`**.
+
+Puis dans le hPanel Hostinger :
+
+1. _Fichiers → Gestionnaire de fichiers → `public_html/`_
+2. Sauvegarder puis vider le dossier s'il contient déjà un site
+3. Téléverser l'archive, puis « Extraire »
+4. Supprimer l'archive une fois extraite
+
+**Pourquoi une archive plutôt qu'un glisser-déposer FileZilla :** le `.htaccess`
+est un fichier caché, et FileZilla ne l'envoie pas par défaut. Sans lui, le site
+a l'air de fonctionner — mais il n'y a ni repli SPA, ni en-têtes de sécurité, ni
+`no-store` sur `sw.js`. Le troisième point est le plus grave, et le plus
+invisible : les utilisateurs se retrouvent figés sur une vieille version des
+semaines plus tard. Dans une archive, le fichier ne peut pas être oublié.
+
+### Option B — rsync sur SFTP
+
+Plus rapide pour les mises à jour suivantes, puisque seuls les fichiers modifiés
+sont transférés :
 
 ```bash
 cp .env.deploy.example .env.deploy   # puis renseigner ses valeurs
@@ -60,12 +88,7 @@ cp .env.deploy.example .env.deploy   # puis renseigner ses valeurs
 ./scripts/deploy-hostinger.sh --go   # publication réelle
 ```
 
-Le script construit, ajoute le `.htaccess`, envoie par `rsync` sur SFTP, puis
-vérifie les en-têtes de `sw.js`. **Il tourne en simulation par défaut** : il
-faut `--go` pour écrire quoi que ce soit.
-
-L'authentification passe par une **clé SSH**, jamais par un mot de passe. Pour
-en déposer une :
+L'authentification passe par une **clé SSH**, jamais par un mot de passe :
 
 ```bash
 ssh-keygen -t ed25519 -C "chalk-deploy"
@@ -76,53 +99,14 @@ Valeurs Hostinger habituelles : port **65002**, utilisateur `uXXXXXXXXX`,
 serveur `srv-XXX.hstgr.io`, destination `public_html/`. Elles se lisent dans le
 hPanel, section _Fichiers → Comptes FTP_.
 
-### Option B — GitHub Actions
+### Le build de la CI
 
-Chaque poussée sur `main` produit un artefact `chalk-dist`, `.htaccess`
-compris, téléchargeable depuis l'onglet Actions.
+Chaque poussée sur `main` produit un artefact `chalk-dist` téléchargeable depuis
+l'onglet Actions, `.htaccess` compris. Utile pour publier un build vérifié par
+la CI plutôt qu'un build fabriqué sur un poste dont on ignore l'état.
 
-Pour publier depuis GitHub, lancer le workflow _Build de déploiement_
-manuellement en cochant **Publier sur Hostinger**. Secrets à configurer dans
-_Settings → Secrets and variables → Actions_ :
-
-| Secret              | Valeur                                |
-| ------------------- | ------------------------------------- |
-| `HOSTINGER_HOST`    | `srv-XXX.hstgr.io`                    |
-| `HOSTINGER_USER`    | `uXXXXXXXXX`                          |
-| `HOSTINGER_SSH_KEY` | clé privée dédiée au déploiement      |
-| `HOSTINGER_PORT`    | facultatif, `65002` par défaut        |
-| `HOSTINGER_PATH`    | facultatif, `public_html/` par défaut |
-
-Et une variable `CHALK_DOMAIN` pour que le workflow vérifie les en-têtes après
-publication.
-
-La publication est volontairement **manuelle** : mettre en ligne est visible par
-les joueurs, cela mérite un geste explicite. Pour la rendre automatique à chaque
-poussée sur `main`, remplacer la condition du job `publish` par
-`if: github.ref == 'refs/heads/main'`.
-
-### Option C — FileZilla
-
-Glisser le contenu de `apps/web/dist` (fichiers cachés compris, dont
-`.htaccess`) dans `public_html/`. Le plus simple pour une première mise en
-ligne, le moins pratique ensuite.
-
-### Configurations d'hébergement
-
-Elles sont **générées** depuis `deploy/headers.mjs`, jamais écrites à la main :
-
-```bash
-pnpm generate:deploy
-```
-
-| Cible              | Fichier                                     | Où le déposer            |
-| ------------------ | ------------------------------------------- | ------------------------ |
-| Apache (Hostinger) | `deploy/generated/.htaccess`                | racine du dossier public |
-| Netlify            | `deploy/generated/netlify.toml`             | racine du dépôt          |
-| Cloudflare Pages   | `deploy/generated/_headers` et `_redirects` | racine du build          |
-| nginx (VPS)        | `deploy/generated/nginx.conf`               | configuration du site    |
-
-La CI échoue si un de ces fichiers est périmé par rapport à `headers.mjs`.
+Aucun job ne publie : la mise en ligne reste manuelle, et aucune clé SSH privée
+n'a besoin d'être stockée en secret du dépôt.
 
 ## 4. Le piège du service worker
 
@@ -205,14 +189,33 @@ en ligne.
 
 ## 8. Vérifications après mise en ligne
 
-- [ ] `https://` force la redirection depuis `http://`
-- [ ] `curl -sI .../sw.js` renvoie bien `no-store`
-- [ ] L'application s'installe sur Android (bannière) et sur iOS (Partager → Sur l'écran d'accueil)
+Une publication manuelle rate silencieusement. Le script les contrôle pour vous :
+
+```bash
+pnpm verify:deployment VOTRE-DOMAINE
+```
+
+Douze contrôles : redirection HTTPS, en-têtes de sécurité, **cache de `sw.js`**,
+manifeste, icônes, écrans de démarrage, repli SPA. Il dit précisément quoi
+regarder quand un contrôle échoue — un `sw.js` sans `no-store` signifie presque
+toujours un `.htaccess` absent.
+
+Le script s'éprouve sur l'aperçu local, qui applique exactement les en-têtes de
+production :
+
+```bash
+pnpm --filter @chalk/web preview
+CHALK_SCHEME=http ./scripts/verify-deployment.sh localhost:4173
+```
+
+Restent à vérifier à la main, sur un vrai téléphone :
+
+- [ ] L'application s'installe (Android : bannière ; iOS : Partager → Sur l'écran d'accueil)
 - [ ] Ouverture depuis l'écran d'accueil : aucun écran blanc, le splash s'affiche
 - [ ] Mode avion : l'application s'ouvre et une partie locale se joue de bout en bout
 - [ ] Une partie interrompue est proposée à la reprise
 - [ ] Aucune violation de la politique de sécurité dans la console
-- [ ] Chargement initial sous 3 s en 4G (§6) — à mesurer sur un vrai téléphone
+- [ ] Chargement initial sous 3 s en 4G (§6)
 
 ## 9. Retour arrière
 

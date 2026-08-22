@@ -152,10 +152,11 @@ construire l'application.
 L'application est entièrement statique : publier `apps/web/dist` derrière du
 HTTPS suffit. L'hébergement retenu est **Hostinger** (issue #2).
 
+La publication se fait à la main : aucun déploiement automatique n'est câblé.
+
 ```bash
-cp .env.deploy.example .env.deploy   # renseigner ses valeurs
-./scripts/deploy-hostinger.sh        # simulation
-./scripts/deploy-hostinger.sh --go   # publication
+pnpm package:release              # archive prête pour le hPanel, .htaccess compris
+pnpm verify:deployment MON-DOMAINE  # 12 contrôles après mise en ligne
 ```
 
 Les configurations Apache, Netlify, Cloudflare et nginx sont **générées** depuis

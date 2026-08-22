@@ -1,11 +1,12 @@
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
+import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 // Mêmes en-têtes qu'en production : c'est le seul moyen de vérifier avant
 // déploiement que la politique de sécurité ne casse pas l'application (#77).
-import { SECURITY_HEADERS } from '../../deploy/headers.mjs'
+import { CACHE_RULES, SECURITY_HEADERS } from '../../deploy/headers.mjs'
 
 /**
  * Chemin de base du déploiement.
@@ -17,11 +18,37 @@ import { SECURITY_HEADERS } from '../../deploy/headers.mjs'
  */
 const base = process.env.VITE_BASE ?? '/'
 
+/**
+ * Applique en aperçu local les règles de cache de la production.
+ *
+ * Sans cela, `pnpm preview` sert `sw.js` avec les valeurs par défaut de Vite,
+ * et la répétition avant mise en ligne ne prouve rien sur le point le plus
+ * risqué du déploiement (#77). `scripts/verify-deployment.sh` peut ainsi être
+ * éprouvé en local avant d'être lancé sur le domaine réel.
+ */
+function productionCacheHeaders(): Plugin {
+  const matches = (rule: (typeof CACHE_RULES)[number], url: string) =>
+    rule.path.endsWith('/*') ? url.startsWith(rule.path.slice(0, -1)) : url === rule.path
+
+  return {
+    name: 'chalk:production-cache-headers',
+    configurePreviewServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const url = (request.url ?? '/').split('?')[0] ?? '/'
+        const rule = CACHE_RULES.find((candidate) => matches(candidate, url))
+        if (rule) response.setHeader('Cache-Control', rule.cacheControl)
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
   base,
   plugins: [
     vue(),
     tailwindcss(),
+    productionCacheHeaders(),
     VitePWA({
       // §5 : une mise à jour ne doit jamais interrompre une partie en cours.
       // En mode « prompt », c'est l'application qui décide du moment, pas le

@@ -13,3 +13,6 @@ coverage/
 
 # Balises générées par scripts/generate-assets.mjs, déjà inlinées dans index.html
 apps/web/scripts/splash-tags.generated.html
+
+# Archives de publication
+chalk-*.zip

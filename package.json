@@ -15,7 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r typecheck",
-    "generate:deploy": "node deploy/generate.mjs"
+    "generate:deploy": "node deploy/generate.mjs",
+    "package:release": "bash scripts/package-release.sh",
+    "verify:deployment": "bash scripts/verify-deployment.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
