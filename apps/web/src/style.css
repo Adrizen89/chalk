@@ -22,25 +22,106 @@
   --color-accent: #f6c453; /* joueur actif, mise en avant */
   --color-accent-deep: #a97c15;
 
-  /* Couleurs de la cible : le vert et le rouge des doubles et triples. */
-  --color-board-green: #1f8a4c;
+  /*
+   * Texte posé sur un fond coloré — accent, avatars, boutons pleins.
+   * Volontairement distinct du fond de page : en thème clair, le fond
+   * s'éclaircit mais ce texte doit rester sombre pour rester lisible.
+   */
+  --color-on-accent: #10141f;
+
+  /*
+   * Texte posé sur les couleurs de la cible (vert des doubles, rouge des
+   * triples). Elles sont sombres dans les deux thèmes : le texte y reste clair.
+   */
+  --color-on-board: #ffffff;
+
+  /*
+   * Couleurs de la cible : le vert et le rouge des doubles et triples.
+   *
+   * Le vert est plus sombre que celui d'une vraie cible : à #1f8a4c, du blanc
+   * par-dessus ne tient que 4,38:1, sous le seuil AA du §6. À #1b7a43 il passe
+   * à 5,37:1 sans perdre la lecture « vert de la cible ».
+   */
+  --color-board-green: #1b7a43;
   --color-board-red: #c2352f;
 
-  --color-bust: #e5484d;
+  /* Rouge éclairci : à #e5484d, un message d'erreur ne tenait que 4,30:1 sur
+     la surface sombre. */
+  --color-bust: #f0595e;
   --color-ok: #35b37e;
 
   /* Échelle typographique : le palier « score » doit être lisible à 2–3 m
      sur un téléphone posé sur une table (§5). */
-  --text-score: clamp(3.25rem, 17vw, 6.5rem);
-  --text-score-idle: clamp(2rem, 10vw, 3.5rem);
+  --text-score: calc(clamp(3.25rem, 17vw, 6.5rem) * var(--score-scale, 1));
+  --text-score-idle: calc(clamp(2rem, 10vw, 3.5rem) * var(--score-scale, 1));
 
   /* §5 : zones de tap d'au minimum 48 × 48 px. On saisit debout, parfois vite,
      parfois avec les mains moites. */
   --spacing-tap: 3rem;
 }
 
+/*
+ * §4.9 — thème clair.
+ *
+ * Le thème sombre reste le défaut : les salles de fléchettes sont souvent peu
+ * éclairées. Le thème clair sert le cas inverse — jouer dehors, ou en plein
+ * soleil, où un écran sombre devient illisible.
+ *
+ * Seuls les jetons changent : aucun composant ne connaît le thème.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-slate-board: #f3f5f9;
+  --color-slate-surface: #ffffff;
+  --color-slate-raised: #e6eaf2;
+  --color-slate-line: #cbd4e2;
+
+  --color-chalk: #111827;
+  --color-chalk-dim: #4d5a70;
+
+  /*
+   * Ambre nettement assombri : sur fond clair, l'ambre du thème sombre plafonne
+   * à 3,26:1 en texte — insuffisant pour du petit texte au regard du §6.
+   * À #8a5f06, l'accent tient 5,17:1 en texte sur le fond, et 5,64:1 avec du
+   * blanc par-dessus quand il sert de fond. Les deux usages passent AA.
+   */
+  --color-accent: #8a5f06;
+  --color-accent-deep: #6b4a04;
+  --color-on-accent: #ffffff;
+
+  --color-board-green: #14663a;
+  --color-board-red: #a52621;
+
+  --color-bust: #c11d24;
+  --color-ok: #1d7a52;
+}
+
+/*
+ * §4.9 — taille d'affichage des scores.
+ *
+ * §5 exige la lisibilité à 2–3 mètres, mais la bonne taille dépend de
+ * l'appareil et de la distance réelle. Le facteur multiplie le palier « score »
+ * plutôt que de redéfinir une échelle par taille.
+ */
+:root {
+  --score-scale: 1;
+}
+:root[data-score-size='compact'] {
+  --score-scale: 0.8;
+}
+:root[data-score-size='large'] {
+  --score-scale: 1.2;
+}
+
 :root {
   color-scheme: dark;
+}
+
+/* Le thème s'applique avant le premier rendu : sans cela, un thème clair
+   choisi produit un flash sombre au démarrage. */
+html {
+  background: var(--color-slate-board);
 }
 
 html,

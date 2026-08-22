@@ -8,6 +8,7 @@
 import type { PlayerRef } from '@chalk/core'
 import { randomId } from '../lib/id.js'
 import { db } from './database.js'
+import { toStorable } from './storable.js'
 import type { StoredPlayer } from './schema.js'
 
 const LEGACY_KEY = 'chalk.players.v1'
@@ -35,7 +36,7 @@ export async function addPlayer(name: string): Promise<StoredPlayer | null> {
     lastPlayedAt: 0,
     gamesPlayed: 0,
   }
-  await db().players.put(player)
+  await db().players.put(toStorable(player))
   return player
 }
 

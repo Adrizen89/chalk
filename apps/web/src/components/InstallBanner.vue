@@ -36,7 +36,7 @@ const showIosSteps = ref(false)
     <button
       v-if="canPromptNatively"
       type="button"
-      class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-slate-board"
+      class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-on-accent"
       @click="promptInstall()"
     >
       Installer
@@ -46,7 +46,7 @@ const showIosSteps = ref(false)
     <template v-else-if="needsIosInstructions">
       <button
         type="button"
-        class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-slate-board"
+        class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-on-accent"
         :aria-expanded="showIosSteps"
         @click="showIosSteps = !showIosSteps"
       >

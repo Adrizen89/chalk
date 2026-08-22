@@ -105,6 +105,12 @@ re-décidées écran par écran : palier typographique « score » lisible à 2�
 cibles tactiles d'au moins 48 px, zones d'action dans la moitié basse de
 l'écran, aucune fenêtre modale pendant une partie, safe areas gérées.
 
+Deux thèmes, sombre par défaut. **Les contrastes des deux palettes sont
+vérifiés au ratio WCAG AA** (§6) : aucune paire texte/fond ne descend sous
+4,5:1. Le thème s'applique avant le premier rendu, depuis un miroir synchrone
+en `localStorage` — un chargement IndexedDB asynchrone produirait un flash de
+thème au démarrage.
+
 ### Persistance
 
 Tout ce que Chalk sait vit d'abord en IndexedDB. Ce n'est pas un cache du

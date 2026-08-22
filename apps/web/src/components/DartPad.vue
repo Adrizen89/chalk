@@ -48,8 +48,8 @@ function send(segment: number, forced?: Multiplier) {
         :class="[
           option.class,
           multiplier === option.value
-            ? 'text-chalk ring-2 ring-accent'
-            : 'text-chalk/70 opacity-60',
+            ? 'text-on-board ring-2 ring-accent'
+            : 'text-on-board/70 opacity-60',
         ]"
         :aria-pressed="multiplier === option.value"
         @click="multiplier = option.value as Multiplier"
@@ -76,14 +76,14 @@ function send(segment: number, forced?: Multiplier) {
            multiplicateur qui produirait une fléchette impossible. -->
       <button
         type="button"
-        class="tap h-12 bg-board-green text-sm font-bold text-chalk"
+        class="tap h-12 bg-board-green text-sm font-bold text-on-board"
         @click="send(BULL, 1)"
       >
         25
       </button>
       <button
         type="button"
-        class="tap h-12 bg-board-red text-sm font-bold text-chalk"
+        class="tap h-12 bg-board-red text-sm font-bold text-on-board"
         @click="send(BULL, 2)"
       >
         BULL

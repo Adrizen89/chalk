@@ -32,7 +32,7 @@ function adjust(id: string, delta: number) {
       class="flex items-center gap-2 rounded-xl bg-slate-surface px-2 py-1.5"
     >
       <span
-        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold text-slate-board"
+        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold text-on-accent"
         :style="{ backgroundColor: avatarColor(player.id) }"
         aria-hidden="true"
       >

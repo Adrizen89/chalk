@@ -24,6 +24,7 @@ import TurnDarts from '@/components/TurnDarts.vue'
 import TurnTotalPad from '@/components/TurnTotalPad.vue'
 import { useMatch } from '@/composables/useMatch'
 import { useWakeLock } from '@/composables/useWakeLock'
+import { useFeedback } from '@/composables/useFeedback'
 
 const emit = defineEmits<{ quit: [] }>()
 
@@ -53,6 +54,8 @@ const {
  * batterie pour rien.
  */
 const wakeLock = useWakeLock()
+/** §4.9 — annonce sonore et vibration des moments forts. */
+const feedback = useFeedback()
 onMounted(() => void wakeLock.request())
 onUnmounted(() => void wakeLock.release())
 
@@ -87,6 +90,7 @@ function nameOf(playerId: string): string {
  * des deux qu'il faut annoncer. La fin de match, elle, a son propre écran.
  */
 watch(lastEffects, (effects) => {
+  feedback.onEffects(effects)
   const types = new Set(effects.map((effect) => effect.type))
   if (types.has('game-won')) return
 
@@ -193,7 +197,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
           <!-- §5 : messages courts, jamais bloquants. -->
           <p
             v-if="banner"
-            class="rounded-xl bg-accent px-3 py-2 text-center text-lg font-bold text-slate-board"
+            class="rounded-xl bg-accent px-3 py-2 text-center text-lg font-bold text-on-accent"
             role="status"
           >
             {{ banner }}
@@ -244,7 +248,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
               </button>
               <button
                 type="button"
-                class="tap h-14 bg-accent text-sm font-bold text-slate-board"
+                class="tap h-14 bg-accent text-sm font-bold text-on-accent"
                 @click="rematch()"
               >
                 Revanche

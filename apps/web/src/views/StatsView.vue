@@ -111,7 +111,7 @@ const labelOf = (stats: GameStats) => findRule(baseRuleId(stats.ruleId))?.label 
           @click="loadPlayer(player.id)"
         >
           <span
-            class="flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-bold text-slate-board"
+            class="flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-bold text-on-accent"
             :style="{ backgroundColor: avatarColor(player.id) }"
             aria-hidden="true"
           >
@@ -134,9 +134,7 @@ const labelOf = (stats: GameStats) => findRule(baseRuleId(stats.ruleId))?.label 
               type="button"
               class="tap px-2 text-[0.7rem]"
               :class="
-                ruleFilter === null
-                  ? 'bg-accent text-slate-board'
-                  : 'bg-slate-surface text-chalk-dim'
+                ruleFilter === null ? 'bg-accent text-on-accent' : 'bg-slate-surface text-chalk-dim'
               "
               @click="ruleFilter = null"
             >
@@ -149,7 +147,7 @@ const labelOf = (stats: GameStats) => findRule(baseRuleId(stats.ruleId))?.label 
               class="tap px-2 text-[0.7rem]"
               :class="
                 ruleFilter === rule.id
-                  ? 'bg-accent text-slate-board'
+                  ? 'bg-accent text-on-accent'
                   : 'bg-slate-surface text-chalk-dim'
               "
               @click="ruleFilter = rule.id"

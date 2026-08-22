@@ -40,7 +40,7 @@ const label = (value: number) => (value === 1 ? 'Sec' : `Bo${value}`)
           type="button"
           class="tap num text-sm"
           :class="
-            legs === choice ? 'bg-accent font-bold text-slate-board' : 'bg-slate-surface text-chalk'
+            legs === choice ? 'bg-accent font-bold text-on-accent' : 'bg-slate-surface text-chalk'
           "
           :aria-label="choice === 1 ? 'Un seul leg' : `Au meilleur des ${choice} legs`"
           @click="legs = choice"
@@ -59,7 +59,7 @@ const label = (value: number) => (value === 1 ? 'Sec' : `Bo${value}`)
           type="button"
           class="tap num text-sm"
           :class="
-            sets === choice ? 'bg-accent font-bold text-slate-board' : 'bg-slate-surface text-chalk'
+            sets === choice ? 'bg-accent font-bold text-on-accent' : 'bg-slate-surface text-chalk'
           "
           :aria-label="choice === 1 ? 'Sans sets' : `Au meilleur des ${choice} sets`"
           @click="sets = choice"
@@ -81,7 +81,7 @@ const label = (value: number) => (value === 1 ? 'Sec' : `Bo${value}`)
           class="tap flex-col gap-0 px-1 text-xs leading-tight"
           :class="
             order === choice.value
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="order = choice.value"

@@ -24,7 +24,7 @@ defineEmits<{ apply: []; postpone: [] }>()
     </button>
     <button
       type="button"
-      class="tap shrink-0 bg-accent px-3 text-xs font-bold text-slate-board disabled:opacity-50"
+      class="tap shrink-0 bg-accent px-3 text-xs font-bold text-on-accent disabled:opacity-50"
       :disabled="applying"
       @click="$emit('apply')"
     >

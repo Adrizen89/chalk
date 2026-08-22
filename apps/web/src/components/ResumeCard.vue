@@ -59,7 +59,7 @@ const relativeTime = computed(() => {
         class="flex items-center gap-1.5 rounded-lg bg-slate-surface/70 py-1 pr-2 pl-1 text-xs text-chalk"
       >
         <span
-          class="flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold text-slate-board"
+          class="flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold text-on-accent"
           :style="{ backgroundColor: avatarColor(player.id) }"
           aria-hidden="true"
         >
@@ -72,7 +72,7 @@ const relativeTime = computed(() => {
 
     <button
       type="button"
-      class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-slate-board"
+      class="tap mt-3 h-12 w-full bg-accent text-sm font-bold text-on-accent"
       @click="$emit('resume')"
     >
       Reprendre

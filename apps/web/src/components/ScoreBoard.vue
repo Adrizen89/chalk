@@ -38,7 +38,7 @@ withDefaults(
       "
     >
       <span
-        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold text-slate-board"
+        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-bold text-on-accent"
         :style="{ backgroundColor: avatarColor(player.playerId) }"
         aria-hidden="true"
       >
@@ -76,7 +76,7 @@ withDefaults(
     >
       <div class="flex items-center gap-2">
         <span
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-slate-board"
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-on-accent"
           :style="{ backgroundColor: avatarColor(player.playerId) }"
           aria-hidden="true"
         >

@@ -10,6 +10,7 @@
 import type { GameSnapshot, GameStats, PlayerId } from '@chalk/core'
 import { computeGameStats, findRule } from '@chalk/core'
 import { db, isQuotaError } from './database.js'
+import { toStorable } from './storable.js'
 import type { GameStatus, StoredGame, StoredInputMode } from './schema.js'
 
 export class StorageFullError extends Error {
@@ -17,22 +18,6 @@ export class StorageFullError extends Error {
     super("L'espace de stockage est plein. Supprimez d'anciennes parties pour continuer.")
     this.name = 'StorageFullError'
   }
-}
-
-/**
- * Ramène une valeur à des données brutes, clonables par IndexedDB.
- *
- * Une donnée lue en base puis passée dans un `ref()` de Vue devient un Proxy
- * réactif — et `structuredClone`, sur lequel repose IndexedDB, ne sait pas
- * cloner un Proxy : l'écriture échoue avec un `DataCloneError`. C'est arrivé
- * exactement sur le chemin le plus sensible, la reprise d'une partie (#31).
- *
- * L'aller-retour JSON est sans perte ici : §3.4 exige déjà qu'un instantané
- * soit sérialisable, et un test du moteur le vérifie. Le coût est négligeable
- * — quelques centaines de petits objets — au regard d'une écriture perdue.
- */
-function toStorable<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
 }
 
 export interface SaveGameInput {

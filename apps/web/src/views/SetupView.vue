@@ -26,6 +26,7 @@ import {
   bestOf,
   createMatchRule,
   drawKillerNumbers,
+  findRule,
 } from '@chalk/core'
 import HandicapPicker from '@/components/HandicapPicker.vue'
 import InstallBanner from '@/components/InstallBanner.vue'
@@ -37,12 +38,16 @@ import { abandonGame, findResumableGames, requestPersistentStorage } from '@/db'
 import type { InputMode } from '@/composables/useMatch'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { usePlayerBook, avatarColor, initials } from '@/composables/usePlayerBook'
+import type { Favourite } from '@/composables/useFavourites'
+import { describeConfiguration, useFavourites } from '@/composables/useFavourites'
+import { useSettings } from '@/composables/useSettings'
 
 const emit = defineEmits<{
   start: [rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode]
   resume: [game: StoredGame]
   stats: []
   training: []
+  settings: []
 }>()
 
 const { players: book, load, add } = usePlayerBook()
@@ -52,6 +57,10 @@ const { players: book, load, add } = usePlayerBook()
  * c'est le seul endroit où l'on n'est pas en train de jouer (§5).
  */
 const install = usePwaInstall()
+
+/** §4.9 — configurations favorites, relançables en un tap. */
+const favourites = useFavourites()
+const settings = useSettings()
 
 /**
  * §4.4, #31 — parties interrompues à proposer à la reprise.
@@ -122,6 +131,8 @@ const canStart = computed(() => selectedPlayers.value.length >= 1)
 
 onMounted(async () => {
   await load()
+  await settings.load()
+  await favourites.load()
   await refreshResumable()
   // Demande au navigateur de ne pas évincer nos données sous pression disque :
   // une partie en cours ne doit pas disparaître faute de place (§4.4).
@@ -236,6 +247,46 @@ function launch(players: PlayerRef[]) {
   )
 }
 
+/** §4.9 — enregistre la configuration courante pour la relancer en un tap. */
+async function saveFavourite() {
+  const players = orderedPlayers()
+  const legsToWin = bestOf(legsBestOf.value)
+  const setsToWin = bestOf(setsBestOf.value)
+  const single = legsToWin <= 1 && setsToWin <= 1
+  const ruleConfig = buildConfig(players)
+
+  await favourites.add({
+    label: describeConfiguration({
+      ruleId: rule.value.id,
+      config: ruleConfig,
+      legsBestOf: legsBestOf.value,
+      setsBestOf: setsBestOf.value,
+    }),
+    ruleId: single ? rule.value.id : `match:${rule.value.id}`,
+    config: single
+      ? ruleConfig
+      : { ruleConfig, legsToWin, setsToWin, alternateStart: alternateStart.value },
+    inputMode: inputMode.value,
+    // Les joueurs sont mémorisés : c'est ce qui fait gagner le plus de temps.
+    players: selectedPlayers.value,
+  })
+}
+
+/**
+ * Relance une configuration favorite — §4.9, et §1 : c'est le chemin le plus
+ * court vers une partie lancée.
+ */
+async function launchFavourite(favourite: Favourite) {
+  const favouriteRule = findRule(favourite.ruleId)
+  if (!favouriteRule) return
+
+  const players = favourite.players.length > 0 ? [...favourite.players] : orderedPlayers()
+  if (players.length === 0) return
+
+  await favourites.markUsed(favourite.id)
+  emit('start', favouriteRule, favourite.config, players, favourite.inputMode)
+}
+
 function start() {
   if (!canStart.value) return
   // §4.4 — bull-off : on ne peut pas deviner qui a gagné le lancer, on demande.
@@ -259,6 +310,15 @@ function startAfterBullOff(winnerId: string) {
         <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
         <p class="text-sm text-chalk-dim">Marqueur de points</p>
       </div>
+      <!-- §4.9 — réglages. -->
+      <button
+        type="button"
+        class="tap bg-slate-surface px-3 text-sm text-chalk"
+        aria-label="Réglages"
+        @click="emit('settings')"
+      >
+        ⚙
+      </button>
       <!-- §4.5 — l'entraînement est un espace distinct des parties. -->
       <button
         type="button"
@@ -287,6 +347,38 @@ function startAfterBullOff(winnerId: string) {
       @discard="discard(game)"
     />
 
+    <!-- §4.9 et §1 — une configuration favorite relance une partie en un tap,
+         sans passer par le reste de l'écran. -->
+    <section v-if="favourites.favourites.value.length > 0">
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Favoris</h2>
+      <ul class="flex flex-wrap gap-2">
+        <li
+          v-for="favourite in favourites.favourites.value"
+          :key="favourite.id"
+          class="flex items-stretch overflow-hidden rounded-xl bg-slate-raised"
+        >
+          <button
+            type="button"
+            class="tap flex-col items-start gap-0 px-3 text-left"
+            @click="launchFavourite(favourite)"
+          >
+            <span class="text-sm font-semibold text-chalk">{{ favourite.label }}</span>
+            <span v-if="favourite.players.length > 0" class="text-[0.65rem] text-chalk-dim">
+              {{ favourite.players.map((player) => player.name).join(' · ') }}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="tap w-9 border-l border-slate-line text-chalk-dim"
+            :aria-label="`Supprimer le favori ${favourite.label}`"
+            @click="favourites.remove(favourite.id)"
+          >
+            ✕
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <InstallBanner v-if="install.shouldOffer.value" />
 
     <section>
@@ -299,7 +391,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap h-14 px-1 text-center text-xs leading-tight"
           :class="
             ruleId === entry.id
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           :aria-pressed="ruleId === entry.id"
@@ -328,7 +420,7 @@ function startAfterBullOff(winnerId: string) {
           @click="toggle(player.id)"
         >
           <span
-            class="flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-bold text-slate-board"
+            class="flex h-6 w-6 items-center justify-center rounded-full text-[0.65rem] font-bold text-on-accent"
             :style="{ backgroundColor: avatarColor(player.id) }"
             aria-hidden="true"
           >
@@ -368,7 +460,7 @@ function startAfterBullOff(winnerId: string) {
             class="tap num text-base"
             :class="
               startingScore === preset
-                ? 'bg-accent font-bold text-slate-board'
+                ? 'bg-accent font-bold text-on-accent'
                 : 'bg-slate-surface text-chalk'
             "
             @click="startingScore = preset"
@@ -417,7 +509,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap px-2 text-xs"
           :class="
             cricketVariant === variant.value
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="cricketVariant = variant.value as typeof cricketVariant"
@@ -437,7 +529,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap num"
           :class="
             killerLives === lives
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="killerLives = lives"
@@ -464,7 +556,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap text-xs"
           :class="
             atcMode === mode.value
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="atcMode = mode.value as typeof atcMode"
@@ -484,7 +576,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap num text-sm"
           :class="
             shanghaiRounds === choice
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="shanghaiRounds = choice"
@@ -509,7 +601,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap num text-sm"
           :class="
             halveItStart === choice
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="halveItStart = choice"
@@ -532,7 +624,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap num text-sm"
           :class="
             highScoreRounds === choice
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="highScoreRounds = choice"
@@ -552,7 +644,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap num text-sm"
           :class="
             golfHoles === choice
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="golfHoles = choice"
@@ -620,7 +712,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap text-xs"
           :class="
             inputMode === 'turn'
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="inputMode = 'turn'"
@@ -632,7 +724,7 @@ function startAfterBullOff(winnerId: string) {
           class="tap text-xs"
           :class="
             inputMode === 'dart'
-              ? 'bg-accent font-bold text-slate-board'
+              ? 'bg-accent font-bold text-on-accent'
               : 'bg-slate-surface text-chalk'
           "
           @click="inputMode = 'dart'"
@@ -656,7 +748,7 @@ function startAfterBullOff(winnerId: string) {
             v-for="player in selectedPlayers"
             :key="player.id"
             type="button"
-            class="tap h-14 gap-2 bg-accent text-sm font-bold text-slate-board"
+            class="tap h-14 gap-2 bg-accent text-sm font-bold text-on-accent"
             @click="startAfterBullOff(player.id)"
           >
             <span
@@ -677,15 +769,25 @@ function startAfterBullOff(winnerId: string) {
         </button>
       </div>
 
-      <button
-        v-else
-        type="button"
-        class="tap h-16 w-full bg-accent text-lg font-bold text-slate-board disabled:opacity-30"
-        :disabled="!canStart"
-        @click="start()"
-      >
-        Lancer la partie
-      </button>
+      <template v-else>
+        <button
+          type="button"
+          class="tap h-16 w-full bg-accent text-lg font-bold text-on-accent disabled:opacity-30"
+          :disabled="!canStart"
+          @click="start()"
+        >
+          Lancer la partie
+        </button>
+        <!-- §4.9 — mémoriser cette configuration pour la relancer en un tap. -->
+        <button
+          type="button"
+          class="tap mt-2 h-10 w-full text-xs text-chalk-dim disabled:opacity-30"
+          :disabled="!canStart"
+          @click="saveFavourite()"
+        >
+          ☆ Enregistrer dans les favoris
+        </button>
+      </template>
     </div>
 
     <!-- §3.2 : point d'entrée permanent et discret, même après un refus de

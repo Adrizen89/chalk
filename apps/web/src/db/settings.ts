@@ -7,6 +7,7 @@
  */
 
 import { db } from './database.js'
+import { toStorable } from './storable.js'
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   const row = await db().settings.get(key)
@@ -14,7 +15,8 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 }
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
-  await db().settings.put({ key, value })
+  // Normalisé ici plutôt qu'à l'appel : voir `storable.ts`.
+  await db().settings.put({ key, value: toStorable(value) })
 }
 
 export async function removeSetting(key: string): Promise<void> {

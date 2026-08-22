@@ -9,6 +9,7 @@
 import type { CustomExerciseDefinition, ExerciseResult } from '@chalk/core'
 import { validateCustomExercise } from '@chalk/core'
 import { db } from './database.js'
+import { toStorable } from './storable.js'
 import { randomId } from '../lib/id.js'
 import type { StoredCustomExercise, StoredExerciseResult } from './schema.js'
 
@@ -54,7 +55,7 @@ export async function saveExerciseResult(
     ...(input.durationSeconds !== undefined ? { durationSeconds: input.durationSeconds } : {}),
   }
 
-  await db().exerciseResults.put(record)
+  await db().exerciseResults.put(toStorable(record))
   return { record, isPersonalBest: previousBest === null || isBetter(record, previousBest) }
 }
 
@@ -118,7 +119,7 @@ export async function saveCustomExercise(
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   }
-  await db().customExercises.put(record)
+  await db().customExercises.put(toStorable(record))
   return record
 }
 

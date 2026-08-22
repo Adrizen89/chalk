@@ -11,6 +11,10 @@ import Dexie from 'dexie'
 import type { CustomExerciseDefinition, ExerciseResult } from '@chalk/core'
 import { InvalidExerciseError } from '@chalk/core'
 import { ChalkDatabase, useDatabaseForTests } from '@/db/database'
+import { getSetting, setSetting } from '@/db/settings'
+import { describeConfiguration } from '@/composables/useFavourites'
+import { toStorable } from '@/db/storable'
+import { ref } from 'vue'
 import { SCHEMA_VERSION, STORES_V1 } from '@/db/schema'
 import {
   deleteCustomExercise,
@@ -242,5 +246,116 @@ describe('migration du schéma v1 → v2 (§4.4)', () => {
     expect(await migrated.customExercises.count()).toBe(0)
 
     database = migrated
+  })
+})
+
+describe('configurations favorites (§4.9)', () => {
+  /**
+   * §1 — c'est le levier le plus direct vers l'objectif des 15 secondes :
+   * relancer « 501, double out, best of 5 » sans toucher au reste de l'écran.
+   */
+  it('décrit une configuration X01 de façon lisible', () => {
+    expect(
+      describeConfiguration({
+        ruleId: 'match:x01',
+        config: { ruleConfig: { startingScore: 501, outMode: 'double' } },
+        legsBestOf: 5,
+        setsBestOf: 1,
+      }),
+    ).toBe('501, double out, best of 5')
+  })
+
+  it('décrit un leg sec sans mention de format', () => {
+    expect(
+      describeConfiguration({
+        ruleId: 'x01',
+        config: { startingScore: 301, outMode: 'master' },
+        legsBestOf: 1,
+        setsBestOf: 1,
+      }),
+    ).toBe('301, master out')
+  })
+
+  it('mentionne les sets quand il y en a', () => {
+    expect(
+      describeConfiguration({
+        ruleId: 'match:x01',
+        config: { ruleConfig: { startingScore: 501, outMode: 'straight' } },
+        legsBestOf: 3,
+        setsBestOf: 3,
+      }),
+    ).toBe('501, straight out, best of 3, 3 sets')
+  })
+
+  it('retombe sur le nom du mode pour les autres jeux', () => {
+    expect(
+      describeConfiguration({ ruleId: 'cricket', config: {}, legsBestOf: 1, setsBestOf: 1 }),
+    ).toBe('Cricket')
+  })
+})
+
+describe('réglages persistés (§4.9)', () => {
+  it('conserve le thème et la taille des scores', async () => {
+    await setSetting('theme', 'light')
+    await setSetting('scoreSize', 'large')
+    expect(await getSetting('theme', 'dark')).toBe('light')
+    expect(await getSetting('scoreSize', 'normal')).toBe('large')
+  })
+
+  it('retombe sur la valeur par défaut quand rien n’est enregistré', async () => {
+    expect(await getSetting('soundEnabled', false)).toBe(false)
+  })
+
+  it('enregistre une liste de favoris', async () => {
+    const favoris = [{ id: 'f1', label: '501, double out', ruleId: 'x01', config: {}, players: [] }]
+    await setSetting('favourites', favoris)
+    expect(await getSetting<typeof favoris>('favourites', [])).toEqual(favoris)
+  })
+})
+
+describe('écriture de données réactives (régression)', () => {
+  /**
+   * IndexedDB repose sur `structuredClone`, qui ne sait pas cloner un Proxy.
+   * Toute donnée passée par un `ref()` de Vue en est un.
+   *
+   * Le piège s'est présenté deux fois : à la reprise d'une partie (#31), puis
+   * aux configurations favorites (§4.9). La garde vit désormais à la frontière
+   * du stockage, une seule fois — ces tests la verrouillent pour chaque table.
+   */
+  it('enregistre un réglage venu d’un ref() Vue', async () => {
+    const favoris = ref([{ id: 'f1', label: '501, double out', players: [{ id: 'a', name: 'A' }] }])
+    await expect(setSetting('favourites', favoris.value)).resolves.toBeUndefined()
+    expect(await getSetting('favourites', [])).toEqual([
+      { id: 'f1', label: '501, double out', players: [{ id: 'a', name: 'A' }] },
+    ])
+  })
+
+  it('enregistre un résultat d’exercice venu d’un ref() Vue', async () => {
+    const reactif = ref(result())
+    await expect(
+      saveExerciseResult({ exerciseId: 'bobs-27', result: reactif.value }),
+    ).resolves.toBeDefined()
+    expect(await exerciseHistory('bobs-27')).toHaveLength(1)
+  })
+
+  it('enregistre un exercice personnalisé venu d’un ref() Vue', async () => {
+    const reactif = ref<CustomExerciseDefinition>({
+      kind: 'scoring',
+      id: 'custom-reactif',
+      name: 'Réactif',
+      description: '',
+      turns: 5,
+      threshold: 60,
+    })
+    await expect(saveCustomExercise(reactif.value)).resolves.toBeDefined()
+    expect(await listCustomExercises()).toHaveLength(1)
+  })
+
+  it('normalise une valeur profondément réactive', () => {
+    const reactif = ref({ a: [{ b: [1, 2, 3] }] })
+    const brut = toStorable(reactif.value)
+    expect(brut).toEqual({ a: [{ b: [1, 2, 3] }] })
+    // La copie est bien détachée du Proxy réactif.
+    expect(JSON.stringify(brut)).toBe(JSON.stringify({ a: [{ b: [1, 2, 3] }] }))
   })
 })

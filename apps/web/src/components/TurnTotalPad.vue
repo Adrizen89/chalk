@@ -91,7 +91,7 @@ function shortcut(value: number) {
           v-for="count in [1, 2, 3]"
           :key="count"
           type="button"
-          class="tap h-12 bg-ok text-sm font-bold text-slate-board"
+          class="tap h-12 bg-ok text-sm font-bold text-on-accent"
           @click="submit(count)"
         >
           {{ count }} fléch.
@@ -139,7 +139,7 @@ function shortcut(value: number) {
       </button>
       <button
         type="button"
-        class="tap h-14 bg-accent text-base font-bold text-slate-board disabled:opacity-30 sm:landscape:h-12"
+        class="tap h-14 bg-accent text-base font-bold text-on-accent disabled:opacity-30 sm:landscape:h-12"
         :disabled="!canSubmit || asksDartCount"
         @click="submit()"
       >

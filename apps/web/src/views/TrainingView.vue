@@ -133,8 +133,10 @@ function recordLabel(exercise: AnyExerciseRule): string | null {
         <span class="flex w-full items-baseline gap-2">
           <span class="font-semibold text-chalk">{{ exercise.name }}</span>
           <span
-            class="rounded px-1.5 py-0.5 text-[0.6rem] font-medium text-slate-board"
-            :class="exercise.custom ? 'bg-board-green' : 'bg-slate-line text-chalk-dim'"
+            class="rounded px-1.5 py-0.5 text-[0.6rem] font-medium"
+            :class="
+              exercise.custom ? 'bg-board-green text-on-board' : 'bg-slate-line text-chalk-dim'
+            "
           >
             {{ exercise.custom ? 'Perso' : SKILL_LABELS[exercise.skill] }}
           </span>
@@ -227,7 +229,7 @@ function recordLabel(exercise: AnyExerciseRule): string | null {
         </button>
         <button
           type="button"
-          class="tap h-14 bg-accent text-sm font-bold text-slate-board"
+          class="tap h-14 bg-accent text-sm font-bold text-on-accent"
           @click="training.restart()"
         >
           Recommencer
