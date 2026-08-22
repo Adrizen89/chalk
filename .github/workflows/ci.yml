@@ -33,3 +33,6 @@ jobs:
       # Le seuil de couverture est appliqué ici, pas seulement souhaité.
       - name: Tests + couverture du moteur
         run: pnpm --filter @chalk/core test:coverage
+
+      - name: Build
+        run: pnpm build

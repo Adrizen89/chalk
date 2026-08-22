@@ -18,16 +18,26 @@ Prérequis : Node ≥ 20.18 et pnpm 10.
 
 ```bash
 pnpm install
+pnpm dev         # lance l'application sur http://localhost:5173
+```
+
+```bash
 pnpm test        # suite complète
 pnpm typecheck
 pnpm lint
+pnpm build
 ```
+
+Le serveur de développement écoute sur toutes les interfaces : on peut ouvrir
+l'application depuis un vrai téléphone sur le même réseau, ce qui est la seule
+façon honnête de vérifier les contraintes d'ergonomie (lisibilité à distance,
+usage à une main, taille des cibles tactiles).
 
 ## Structure
 
 ```
 packages/core   Moteur de règles — TypeScript pur, zéro dépendance
-apps/web        Application Vue 3 (à venir)
+apps/web        Application Vue 3 + Vite + Tailwind
 docs/adr        Décisions d'architecture
 ```
 
@@ -63,6 +73,25 @@ l'ajouter au registre dans `src/games/index.ts`. Rien d'autre à toucher — ni 
 moteur, ni l'écran de partie. Voir
 [`docs/adr/0002-moteur-de-regles-pur.md`](docs/adr/0002-moteur-de-regles-pur.md).
 
+### `apps/web`
+
+Application Vue 3, thème sombre par défaut. L'écran de partie n'a aucune
+connaissance des règles : il affiche la `GameView` projetée par le moteur, ce
+qui lui permet de servir les quatre modes avec le même code. Les modes qui ont
+un affichage propre — le tableau de marques du Cricket — le branchent via
+`view.players[].extra`.
+
+Les contraintes du §5 sont encodées dans le design system plutôt que
+re-décidées écran par écran : palier typographique « score » lisible à 2–3 m,
+cibles tactiles d'au moins 48 px, zones d'action dans la moitié basse de
+l'écran, aucune fenêtre modale pendant une partie, safe areas gérées.
+
 ## État d'avancement
 
-Lot 0 et début du lot 1. Voir les [issues ouvertes](https://github.com/Adrizen89/chalk/issues).
+Lot 0 et lot 1 en cours. Le moteur couvre les quatre modes prioritaires, et
+l'application permet de jouer une partie complète dans les deux modes de saisie.
+
+Prochaines étapes du lot 1 : PWA installable et service worker (#10–#16),
+persistance IndexedDB et reprise de partie (#18, #31), legs et sets (#28).
+
+Voir les [issues ouvertes](https://github.com/Adrizen89/chalk/issues).

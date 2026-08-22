@@ -127,6 +127,14 @@ export interface GameRule<TConfig, TState> {
   view(state: TState): GameView
 }
 
+/**
+ * Règle dont on ne connaît pas les paramètres de type — le cas d'un conteneur
+ * générique : registre des modes, session d'une partie en cours, composant
+ * d'affichage. Les `any` sont ici volontaires et confinés à cet alias.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyGameRule = GameRule<any, any>
+
 /** Aide au typage : dérive le type d'état d'une règle. */
 export type StateOf<R> = R extends GameRule<infer _Config, infer S> ? S : never
 /** Aide au typage : dérive le type de configuration d'une règle. */

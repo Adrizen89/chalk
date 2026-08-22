@@ -9,14 +9,11 @@
  * ici. Rien d'autre à toucher — c'est l'exigence structurante du §4.2.
  */
 
-import type { GameRule } from '../rule.js'
+import type { AnyGameRule } from '../rule.js'
 import { aroundTheClockRule } from './around-the-clock.js'
 import { cricketRule } from './cricket.js'
 import { killerRule } from './killer.js'
 import { x01Rule } from './x01.js'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyGameRule = GameRule<any, any>
 
 export const GAME_RULES: readonly AnyGameRule[] = [
   x01Rule,

@@ -1,0 +1,120 @@
+@import 'tailwindcss';
+
+/**
+ * Design system — §5 et §4.9.
+ *
+ * Les exigences d'ergonomie du cahier des charges « ne sont pas cosmétiques,
+ * elles conditionnent l'usage réel ». Elles sont donc encodées ici, une fois,
+ * plutôt que re-décidées écran par écran.
+ */
+
+@theme {
+  /* Thème sombre par défaut (§4.9 : les salles de fléchettes sont peu éclairées).
+     Le nom du projet vient de la craie sur l'ardoise : fond ardoise, texte craie. */
+  --color-slate-board: #0b1220;
+  --color-slate-surface: #151d2e;
+  --color-slate-raised: #1e2940;
+  --color-slate-line: #2c3a56;
+
+  --color-chalk: #f2f5f9;
+  --color-chalk-dim: #96a3ba;
+
+  --color-accent: #f6c453; /* joueur actif, mise en avant */
+  --color-accent-deep: #a97c15;
+
+  /* Couleurs de la cible : le vert et le rouge des doubles et triples. */
+  --color-board-green: #1f8a4c;
+  --color-board-red: #c2352f;
+
+  --color-bust: #e5484d;
+  --color-ok: #35b37e;
+
+  /* Échelle typographique : le palier « score » doit être lisible à 2–3 m
+     sur un téléphone posé sur une table (§5). */
+  --text-score: clamp(3.25rem, 17vw, 6.5rem);
+  --text-score-idle: clamp(2rem, 10vw, 3.5rem);
+
+  /* §5 : zones de tap d'au minimum 48 × 48 px. On saisit debout, parfois vite,
+     parfois avec les mains moites. */
+  --spacing-tap: 3rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-slate-board);
+  color: var(--color-chalk);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  /* §5 : aucune sélection involontaire ni menu contextuel pendant la saisie. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+@layer components {
+  /**
+   * Cible tactile de base. §5 : minimum 48 × 48 px, partout.
+   * `touch-action: manipulation` supprime le délai de 300 ms du double-tap :
+   * c'est la moitié du budget de latence de saisie du §6.
+   */
+  .tap {
+    min-height: var(--spacing-tap);
+    min-width: var(--spacing-tap);
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: background-color 90ms ease-out;
+  }
+
+  /* §5 : retour visuel immédiat après chaque saisie, sans animation qui
+     bloque la saisie suivante. */
+  .tap:active {
+    transform: scale(0.97);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+/**
+ * §3.2 — zones sûres des iPhone à encoche / Dynamic Island.
+ *
+ * Le `max()` est important : sans lui, ces classes écrasent les utilitaires
+ * `pt-*` / `pb-*` de Tailwind et collent le contenu au bord sur les appareils
+ * sans encoche. On garde donc un plancher de marge en toutes circonstances.
+ */
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

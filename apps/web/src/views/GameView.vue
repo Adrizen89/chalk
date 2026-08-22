@@ -1,0 +1,191 @@
+<script setup lang="ts">
+/**
+ * Écran de partie — #29, §4.3 et §5.
+ *
+ * L'écran le plus regardé de l'application, et celui où toutes les contraintes
+ * d'ergonomie du §5 se vérifient :
+ *
+ *  - le score restant est le plus gros élément, lisible à 2–3 m ;
+ *  - les zones de tap sont dans la moitié basse, utilisables au pouce ;
+ *  - aucune fenêtre modale, aucune animation qui bloque la saisie suivante ;
+ *  - retour visuel immédiat après chaque saisie.
+ *
+ * Il ne connaît aucune règle : il affiche une `GameView` (§4.2). C'est ce qui
+ * lui permet de servir X01, Cricket, Killer et Around the Clock — et les règles
+ * maison à venir.
+ */
+import { computed, ref, watch } from 'vue'
+import type { Dart } from '@chalk/core'
+import CheckoutHint from '@/components/CheckoutHint.vue'
+import CricketMarks from '@/components/CricketMarks.vue'
+import DartPad from '@/components/DartPad.vue'
+import ScoreBoard from '@/components/ScoreBoard.vue'
+import TurnDarts from '@/components/TurnDarts.vue'
+import TurnTotalPad from '@/components/TurnTotalPad.vue'
+import { useMatch } from '@/composables/useMatch'
+
+const emit = defineEmits<{ quit: [] }>()
+
+const match = useMatch()
+const {
+  view,
+  rule,
+  isFinished,
+  winner,
+  canUndo,
+  checkout,
+  effectiveInputMode,
+  lastEffects,
+  throwDart,
+  submitTurnTotal,
+  undo,
+  undoTurn,
+  rematch,
+} = match
+
+const error = ref<string | null>(null)
+/** §4.9 — annonce des 180 et fin de leg, en bandeau non bloquant. */
+const banner = ref<string | null>(null)
+let bannerTimer: ReturnType<typeof setTimeout> | undefined
+
+/** Score restant du joueur actif, pour valider la saisie par volée. */
+const remaining = computed(() => {
+  if (rule.value?.id !== 'x01') return undefined
+  const active = view.value?.players.find((player) => player.isActive)
+  if (!active) return undefined
+  const parsed = Number(active.primary)
+  return Number.isFinite(parsed) ? parsed : undefined
+})
+
+/** Modes qui affichent leur propre tableau : le score passe en bande compacte. */
+const hasOwnBoard = computed(() => rule.value?.id === 'cricket')
+
+const activeName = computed(() => view.value?.players.find((player) => player.isActive)?.name ?? '')
+
+watch(lastEffects, (effects) => {
+  for (const effect of effects) {
+    if (effect.type === 'milestone' && effect.label === '180') announce('180 !')
+    if (effect.type === 'bust') announce('Bust')
+  }
+})
+
+function announce(message: string) {
+  banner.value = message
+  clearTimeout(bannerTimer)
+  bannerTimer = setTimeout(() => (banner.value = null), 1600)
+}
+
+function onDart(dart: Dart) {
+  error.value = throwDart(dart)
+}
+
+function onTurnTotal(total: number, dartsUsed?: number) {
+  error.value = submitTurnTotal(total, dartsUsed)
+}
+</script>
+
+<template>
+  <div v-if="view" class="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden px-3">
+    <header class="safe-top flex shrink-0 items-center gap-2 pb-2">
+      <button
+        type="button"
+        class="tap px-2 text-sm text-chalk-dim"
+        aria-label="Quitter la partie"
+        @click="emit('quit')"
+      >
+        ✕
+      </button>
+      <span class="text-xs font-semibold tracking-wide text-chalk-dim uppercase">
+        {{ rule?.label }}
+      </span>
+      <!-- §4.3 : bouton Annuler toujours accessible. -->
+      <button
+        type="button"
+        class="tap ml-auto bg-slate-surface px-3 text-sm text-chalk disabled:opacity-30"
+        :disabled="!canUndo"
+        @click="undo()"
+      >
+        ↶ Annuler
+      </button>
+      <button
+        type="button"
+        class="tap bg-slate-surface px-3 text-xs text-chalk-dim disabled:opacity-30"
+        :disabled="!canUndo"
+        @click="undoTurn()"
+      >
+        Volée
+      </button>
+    </header>
+
+    <!-- Zone d'information : elle cède la place au pavé de saisie si l'écran
+         est petit, plutôt que de le repousser hors de portée du pouce. -->
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      <ScoreBoard :view="view" :dense="hasOwnBoard" />
+      <CricketMarks v-if="rule?.id === 'cricket'" :view="view" class="mt-2" />
+    </div>
+
+    <div class="mt-2 shrink-0 space-y-2">
+      <TurnDarts
+        v-if="effectiveInputMode === 'dart'"
+        :darts="view.turnDarts"
+        :show-total="rule?.id === 'x01'"
+      />
+      <CheckoutHint v-if="checkout" :best="checkout.best" :alternatives="checkout.alternatives" />
+    </div>
+
+    <!-- §5 : messages courts, jamais bloquants. -->
+    <p
+      v-if="banner"
+      class="mt-2 shrink-0 rounded-xl bg-accent px-3 py-2 text-center text-lg font-bold text-slate-board"
+      role="status"
+    >
+      {{ banner }}
+    </p>
+    <p
+      v-else-if="error"
+      class="mt-2 shrink-0 text-center text-sm font-medium text-bust"
+      role="alert"
+    >
+      {{ error }}
+    </p>
+
+    <!-- La saisie occupe la moitié basse : on la tient d'une main (§5). -->
+    <div class="safe-bottom shrink-0 pt-2">
+      <template v-if="!isFinished">
+        <p class="mb-2 text-center text-xs text-chalk-dim">
+          Au tour de <span class="font-bold text-accent">{{ activeName }}</span>
+        </p>
+        <DartPad v-if="effectiveInputMode === 'dart'" @throw="onDart" />
+        <TurnTotalPad v-else :remaining="remaining" @submit="onTurnTotal" />
+      </template>
+
+      <!-- §4.4 — écran de fin : vainqueur et relance en un tap. -->
+      <div v-else class="rounded-2xl border border-accent/50 bg-accent/10 p-4 text-center">
+        <p class="text-sm text-chalk-dim">Vainqueur</p>
+        <p class="mt-1 text-3xl font-bold text-accent">{{ winner?.name }}</p>
+        <dl class="mt-3 flex justify-center gap-4 text-xs text-chalk-dim">
+          <div v-for="stat in winner?.secondary ?? []" :key="stat.label" class="flex gap-1">
+            <dt>{{ stat.label }}</dt>
+            <dd class="num font-bold text-chalk">{{ stat.value }}</dd>
+          </div>
+        </dl>
+        <div class="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="tap h-14 bg-slate-raised text-sm font-semibold text-chalk"
+            @click="emit('quit')"
+          >
+            Terminer
+          </button>
+          <button
+            type="button"
+            class="tap h-14 bg-accent text-sm font-bold text-slate-board"
+            @click="rematch()"
+          >
+            Revanche
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
