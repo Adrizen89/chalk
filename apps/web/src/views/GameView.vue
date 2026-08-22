@@ -42,6 +42,8 @@ const {
   undo,
   undoTurn,
   rematch,
+  abandon,
+  storageError,
 } = match
 
 /**
@@ -103,7 +105,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
       <button
         type="button"
         class="tap px-2 text-sm text-chalk-dim"
-        aria-label="Quitter la partie"
+        aria-label="Quitter la partie sans l'abandonner"
         @click="emit('quit')"
       >
         ✕
@@ -111,6 +113,16 @@ function onTurnTotal(total: number, dartsUsed?: number) {
       <span class="text-xs font-semibold tracking-wide text-chalk-dim uppercase">
         {{ rule?.label }}
       </span>
+      <!-- §4.4 : quitter conserve la partie, l'abandonner la retire des
+           reprises proposées. Deux gestes distincts, volontairement. -->
+      <button
+        v-if="!isFinished"
+        type="button"
+        class="tap px-2 text-xs text-chalk-dim"
+        @click="abandon()"
+      >
+        Abandonner
+      </button>
       <!-- §4.3 : bouton Annuler toujours accessible. -->
       <button
         type="button"
@@ -167,6 +179,16 @@ function onTurnTotal(total: number, dartsUsed?: number) {
           </p>
           <p v-else-if="error" class="text-center text-sm font-medium text-bust" role="alert">
             {{ error }}
+          </p>
+          <!-- §5 : un problème d'enregistrement se signale, il n'interrompt pas
+               la partie — les scores restent en mémoire et la volée suivante
+               peut être saisie. -->
+          <p
+            v-else-if="storageError"
+            class="text-center text-xs font-medium text-bust"
+            role="alert"
+          >
+            {{ storageError }}
           </p>
         </div>
 

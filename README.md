@@ -38,6 +38,7 @@ usage à une main, taille des cibles tactiles).
 ```
 packages/core        Moteur de règles — TypeScript pur, zéro dépendance
 apps/web             Application Vue 3 + Vite + Tailwind, PWA installable
+apps/web/src/db      Persistance locale (IndexedDB via Dexie)
 apps/web/assets      Sources vectorielles des icônes
 apps/web/scripts     Génération des icônes et des écrans de démarrage
 docs/adr             Décisions d'architecture
@@ -88,6 +89,25 @@ re-décidées écran par écran : palier typographique « score » lisible à 2�
 cibles tactiles d'au moins 48 px, zones d'action dans la moitié basse de
 l'écran, aucune fenêtre modale pendant une partie, safe areas gérées.
 
+### Persistance
+
+Tout ce que Chalk sait vit d'abord en IndexedDB. Ce n'est pas un cache du
+serveur : le §3.1 exige que le mode local soit pleinement fonctionnel hors
+ligne, donc la base locale est la source de vérité et le serveur (lot 2) en
+sera la copie.
+
+Ce qu'on enregistre d'une partie, ce n'est pas son état mais son **journal
+d'entrées** — compact, rejouable, et bien plus facile à réconcilier qu'un état
+mutable, ce qui prépare la synchronisation multi-appareil.
+
+L'écriture a lieu **à chaque entrée validée**, jamais à la sortie propre : une
+batterie qui se vide ne laisse pas le temps de sortir proprement. Elle n'est
+pas attendue, pour rester sous les 100 ms de latence de saisie du §6.
+
+Une partie interrompue est proposée à la reprise sur l'accueil, et reprend à
+l'état exact — scores, joueur actif, volée en cours, et jusqu'à la possibilité
+d'annuler.
+
 ### PWA
 
 L'application s'installe sur l'écran d'accueil et se comporte comme une
@@ -117,9 +137,10 @@ construire l'application.
 
 Lot 0 et lot 1 en cours. Le moteur couvre les quatre modes prioritaires,
 l'application permet de jouer une partie complète dans les deux modes de
-saisie, et elle s'installe sur téléphone en fonctionnant hors ligne.
+saisie, elle s'installe sur téléphone en fonctionnant hors ligne, et une partie
+interrompue se reprend à l'état exact.
 
-Prochaines étapes du lot 1 : persistance IndexedDB et reprise de partie
-(#18, #31), legs et sets (#28), carnet de joueurs complet (#33).
+Prochaines étapes du lot 1 : legs et sets (#28), carnet de joueurs complet
+(#33), puis le test terrain de 20 parties (#78) avant d'attaquer le lot 2.
 
 Voir les [issues ouvertes](https://github.com/Adrizen89/chalk/issues).

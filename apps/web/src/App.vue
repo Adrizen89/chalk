@@ -12,6 +12,7 @@
  */
 import { computed } from 'vue'
 import type { AnyGameRule, PlayerRef } from '@chalk/core'
+import type { StoredGame } from '@/db'
 import UpdateBanner from '@/components/UpdateBanner.vue'
 import GameView from '@/views/GameView.vue'
 import SetupView from '@/views/SetupView.vue'
@@ -19,7 +20,7 @@ import type { InputMode } from '@/composables/useMatch'
 import { useMatch } from '@/composables/useMatch'
 import { usePwaUpdate } from '@/composables/usePwaUpdate'
 
-const { isActive, start, quit } = useMatch()
+const { isActive, start, resume, quit } = useMatch()
 const { needRefresh, applying, applyUpdate, postpone } = usePwaUpdate()
 
 /**
@@ -31,6 +32,11 @@ const canShowUpdate = computed(() => needRefresh.value && !isActive.value)
 function onStart(rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode) {
   start(rule, config, players, inputMode)
 }
+
+/** §4.4, #31 — reprise d'une partie interrompue. */
+function onResume(game: StoredGame) {
+  resume(game)
+}
 </script>
 
 <template>
@@ -40,6 +46,6 @@ function onStart(rule: AnyGameRule, config: unknown, players: PlayerRef[], input
     </div>
 
     <GameView v-if="isActive" @quit="quit()" />
-    <SetupView v-else @start="onStart" />
+    <SetupView v-else @start="onStart" @resume="onResume" />
   </main>
 </template>

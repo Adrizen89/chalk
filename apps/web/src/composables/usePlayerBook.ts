@@ -1,19 +1,18 @@
 /**
- * Carnet de joueurs — amorce de #33.
+ * Carnet de joueurs — §4.1, #33.
  *
  * §4.1 le qualifie d'indispensable : « on rejoue souvent avec les mêmes
  * personnes ». C'est le principal levier pour tenir l'objectif des 15 secondes
- * du §1.
+ * du §1, d'où le tri par usage récent.
  *
- * Version minimale, adossée à `localStorage`, suffisante pour l'écran de
- * configuration. Le carnet complet (avatars, tri par fréquence, édition,
- * rattachement à un compte) passera sur IndexedDB avec #18 et #33.
+ * Les données vivent en IndexedDB (#18). Le carnet écrit en `localStorage`
+ * avant cette migration est repris au premier chargement.
  */
 
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import type { PlayerRef } from '@chalk/core'
-
-const STORAGE_KEY = 'chalk.players.v1'
+import * as repository from '@/db/players'
+import type { StoredPlayer } from '@/db'
 
 /** Couleurs d'avatar par initiales — contraste vérifié sur fond ardoise (§6). */
 const AVATAR_COLORS = [
@@ -26,38 +25,8 @@ const AVATAR_COLORS = [
   '#3fb8c4',
 ] as const
 
-function load(): PlayerRef[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (entry): entry is PlayerRef =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as PlayerRef).id === 'string' &&
-        typeof (entry as PlayerRef).name === 'string',
-    )
-  } catch {
-    // Un stockage illisible ne doit jamais empêcher de lancer une partie (§2).
-    return []
-  }
-}
-
-const players = ref<PlayerRef[]>(load())
-
-watch(
-  players,
-  (value) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-    } catch {
-      // Mode navigation privée, quota plein : on continue sans persister.
-    }
-  },
-  { deep: true },
-)
+const players = ref<StoredPlayer[]>([])
+const loaded = ref(false)
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -73,24 +42,39 @@ export function avatarColor(id: string): string {
 }
 
 export function usePlayerBook() {
+  async function refresh() {
+    players.value = await repository.listPlayers()
+  }
+
+  async function load() {
+    if (loaded.value) return
+    try {
+      await repository.migrateLegacyPlayers()
+      await refresh()
+    } catch (error) {
+      // §2 : un carnet illisible ne doit jamais empêcher de lancer une partie.
+      console.error('Chargement du carnet de joueurs impossible', error)
+    } finally {
+      loaded.value = true
+    }
+  }
+
   /** §4.1 — ajout d'un joueur à la volée pendant la configuration. */
-  function add(name: string): PlayerRef | null {
-    const trimmed = name.trim()
-    if (!trimmed) return null
-
-    const existing = players.value.find(
-      (player) => player.name.toLowerCase() === trimmed.toLowerCase(),
-    )
-    if (existing) return existing
-
-    const player: PlayerRef = { id: crypto.randomUUID(), name: trimmed }
-    players.value = [...players.value, player]
+  async function add(name: string): Promise<PlayerRef | null> {
+    const player = await repository.addPlayer(name)
+    if (player) await refresh()
     return player
   }
 
-  function remove(id: string) {
-    players.value = players.value.filter((player) => player.id !== id)
+  async function remove(id: string) {
+    await repository.removePlayer(id)
+    await refresh()
   }
 
-  return { players, add, remove }
+  async function rename(id: string, name: string) {
+    await repository.renamePlayer(id, name)
+    await refresh()
+  }
+
+  return { players, loaded, load, refresh, add, remove, rename }
 }

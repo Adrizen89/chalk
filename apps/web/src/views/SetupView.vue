@@ -10,7 +10,7 @@
  * Restent à faire dans #28 : legs et sets, ordre de jeu (aléatoire / manuel /
  * bull-off), handicap, configurations favorites (§4.9).
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, shallowRef } from 'vue'
 import type { AnyGameRule, PlayerRef } from '@chalk/core'
 import {
   CRICKET_DEFAULT_CONFIG,
@@ -21,21 +21,34 @@ import {
   drawKillerNumbers,
 } from '@chalk/core'
 import InstallBanner from '@/components/InstallBanner.vue'
+import ResumeCard from '@/components/ResumeCard.vue'
+import type { StoredGame, StoredPlayer } from '@/db'
+import { abandonGame, findResumableGames, requestPersistentStorage } from '@/db'
 import type { InputMode } from '@/composables/useMatch'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { usePlayerBook, avatarColor, initials } from '@/composables/usePlayerBook'
 
 const emit = defineEmits<{
   start: [rule: AnyGameRule, config: unknown, players: PlayerRef[], inputMode: InputMode]
+  resume: [game: StoredGame]
 }>()
 
-const { players: book, add } = usePlayerBook()
+const { players: book, load, add } = usePlayerBook()
 
 /**
  * §3.2 — l'invitation à l'installation vit ici, sur l'écran de configuration :
  * c'est le seul endroit où l'on n'est pas en train de jouer (§5).
  */
 const install = usePwaInstall()
+
+/**
+ * §4.4, #31 — parties interrompues à proposer à la reprise.
+ *
+ * `shallowRef` et non `ref` : ce sont des enregistrements en lecture seule.
+ * Les rendre profondément réactifs les envelopperait dans des Proxies, que
+ * IndexedDB ne sait pas cloner au moment de les réécrire.
+ */
+const resumable = shallowRef<StoredGame[]>([])
 
 const ruleId = ref('x01')
 const selectedIds = ref<string[]>([])
@@ -59,10 +72,32 @@ const rule = computed(() => GAME_RULES.find((entry) => entry.id === ruleId.value
 const selectedPlayers = computed<PlayerRef[]>(() =>
   selectedIds.value
     .map((id) => book.value.find((player) => player.id === id))
-    .filter((player): player is PlayerRef => player !== undefined),
+    .filter((player): player is StoredPlayer => player !== undefined)
+    .map((player) => ({ id: player.id, name: player.name })),
 )
 
 const canStart = computed(() => selectedPlayers.value.length >= 1)
+
+onMounted(async () => {
+  await load()
+  await refreshResumable()
+  // Demande au navigateur de ne pas évincer nos données sous pression disque :
+  // une partie en cours ne doit pas disparaître faute de place (§4.4).
+  void requestPersistentStorage()
+})
+
+async function refreshResumable() {
+  try {
+    resumable.value = await findResumableGames()
+  } catch (error) {
+    console.error('Lecture des parties en cours impossible', error)
+  }
+}
+
+async function discard(game: StoredGame) {
+  await abandonGame(game.id)
+  await refreshResumable()
+}
 
 function toggle(id: string) {
   selectedIds.value = selectedIds.value.includes(id)
@@ -71,8 +106,8 @@ function toggle(id: string) {
 }
 
 /** §4.1 — ajout d'un joueur à la volée, sans quitter l'écran. */
-function addPlayer() {
-  const player = add(newPlayerName.value)
+async function addPlayer() {
+  const player = await add(newPlayerName.value)
   if (!player) return
   if (!selectedIds.value.includes(player.id)) selectedIds.value = [...selectedIds.value, player.id]
   newPlayerName.value = ''
@@ -111,6 +146,16 @@ function start() {
       <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
       <p class="text-sm text-chalk-dim">Marqueur de points</p>
     </header>
+
+    <!-- §4.4, #31 : la reprise passe avant la configuration. Retrouver son
+         501 en cours doit être plus rapide que d'en relancer un. -->
+    <ResumeCard
+      v-for="game in resumable"
+      :key="game.id"
+      :game="game"
+      @resume="emit('resume', game)"
+      @discard="discard(game)"
+    />
 
     <InstallBanner v-if="install.shouldOffer.value" />
 

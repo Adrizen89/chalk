@@ -1,19 +1,26 @@
 /**
- * État de la partie en cours.
+ * État de la partie en cours, et sa persistance.
  *
  * Un simple module réactif plutôt qu'une bibliothèque de store : il n'y a
  * qu'une partie active à la fois, et le moteur (`@chalk/core`) porte déjà toute
- * la logique. Ce fichier ne fait que l'exposer à Vue.
+ * la logique.
  *
  * `GameSession` est une classe à état mutable, volontairement hors du système
  * de réactivité : on la garde dans un `shallowRef` et on incrémente une
  * révision après chaque mutation. Envelopper la session dans un `reactive`
  * ferait proxifier tout le journal d'entrées à chaque fléchette, pour rien.
+ *
+ * §4.4 impose d'écrire **à chaque entrée validée**, pas à la sortie propre :
+ * une batterie qui se vide ne laisse pas le temps de sortir proprement.
+ * L'écriture est donc déclenchée après chaque fléchette — sans être attendue,
+ * pour rester sous les 100 ms de latence de saisie du §6.
  */
 
 import { computed, ref, shallowRef } from 'vue'
 import type { AnyGameRule, Dart, GameEffect, GameSnapshot, GameView, PlayerRef } from '@chalk/core'
-import { GameSession, suggestCheckout } from '@chalk/core'
+import { GameSession, findRule, suggestCheckout } from '@chalk/core'
+import { StorageFullError, abandonGame, markPlayed, saveGame } from '@/db'
+import type { StoredGame } from '@/db'
 
 /** §4.3 — deux modes de saisie, choisis dans les réglages. */
 export type InputMode = 'turn' | 'dart'
@@ -23,12 +30,14 @@ type AnySession = GameSession<any, any>
 
 const session = shallowRef<AnySession | null>(null)
 const rule = shallowRef<AnyGameRule | null>(null)
+const gameId = ref<string | null>(null)
 const revision = ref(0)
 const lastEffects = ref<readonly GameEffect[]>([])
 const inputMode = ref<InputMode>('turn')
-const isPaused = ref(false)
+/** Erreur de persistance à signaler sans interrompre la partie (§5). */
+const storageError = ref<string | null>(null)
 
-/** Configuration de la dernière partie lancée, pour le bouton « Revanche » (§4.4). */
+/** Configuration de la dernière partie lancée, pour « Revanche » (§4.4). */
 let lastLaunch: { rule: AnyGameRule; config: unknown; players: readonly PlayerRef[] } | null = null
 
 /**
@@ -42,6 +51,35 @@ function trackSession() {
 function touch(effects: readonly GameEffect[] = []) {
   revision.value += 1
   lastEffects.value = effects
+}
+
+/**
+ * Écrit la partie sans être attendue.
+ *
+ * Attendre l'écriture ajouterait le temps d'une transaction IndexedDB au
+ * chemin de saisie, que §6 borne à 100 ms de latence perçue. En cas d'échec,
+ * l'erreur remonte dans `storageError` et l'interface l'affiche en message
+ * court — sans jamais bloquer la volée suivante (§5).
+ */
+function persist() {
+  const current = session.value
+  const id = gameId.value
+  if (!current || !id) return
+
+  const snapshot = current.toSnapshot() as GameSnapshot<unknown>
+  const winnerId = current.winnerId
+
+  void saveGame({
+    id,
+    snapshot,
+    inputMode: inputMode.value,
+    status: winnerId !== null ? 'finished' : 'in-progress',
+    winnerId,
+  }).catch((error: unknown) => {
+    storageError.value =
+      error instanceof StorageFullError ? error.message : "La partie n'a pas pu être enregistrée."
+    console.error('Enregistrement de la partie impossible', error)
+  })
 }
 
 export function useMatch() {
@@ -78,7 +116,6 @@ export function useMatch() {
     return suggestCheckout(session.value.state)
   })
 
-  /** Le mode impose-t-il la saisie fléchette par fléchette ? (§4.3) */
   const requiresDartDetail = computed(() => rule.value?.requiresDartDetail ?? false)
 
   const effectiveInputMode = computed<InputMode>(() =>
@@ -93,10 +130,48 @@ export function useMatch() {
   ) {
     rule.value = gameRule
     session.value = new GameSession(gameRule, config, players)
+    gameId.value = crypto.randomUUID()
     lastLaunch = { rule: gameRule, config, players }
     inputMode.value = gameRule.requiresDartDetail ? 'dart' : mode
-    isPaused.value = false
+    storageError.value = null
     touch()
+    persist()
+    void markPlayed(players)
+  }
+
+  /**
+   * Reprend une partie interrompue — §4.4, #31.
+   *
+   * Le journal est rejoué par le moteur : on retrouve non seulement les scores,
+   * mais aussi le joueur actif, la volée en cours et la possibilité d'annuler.
+   */
+  function resume(stored: StoredGame): boolean {
+    const storedRule = findRule(stored.ruleId)
+    if (!storedRule) {
+      storageError.value = `Le mode « ${stored.ruleId} » n'existe plus dans cette version.`
+      return false
+    }
+
+    try {
+      session.value = GameSession.restore(storedRule, {
+        ruleId: stored.ruleId,
+        config: stored.config,
+        players: stored.players,
+        inputs: stored.inputs,
+      })
+    } catch (error) {
+      storageError.value = 'Cette partie est illisible et ne peut pas être reprise.'
+      console.error('Reprise impossible', error)
+      return false
+    }
+
+    rule.value = storedRule
+    gameId.value = stored.id
+    lastLaunch = { rule: storedRule, config: stored.config, players: stored.players }
+    inputMode.value = stored.inputMode
+    storageError.value = null
+    touch()
+    return true
   }
 
   /** §4.4 — « Revanche » : relance la même configuration en un tap. */
@@ -110,6 +185,7 @@ export function useMatch() {
     try {
       const result = session.value.applyDart(dart)
       touch(result.effects)
+      persist()
       return null
     } catch (error) {
       // §5 : aucune fenêtre modale. L'erreur remonte comme un message court.
@@ -122,6 +198,7 @@ export function useMatch() {
     try {
       const result = session.value.applyTurnTotal(total, dartsUsed)
       touch(result.effects)
+      persist()
       return null
     } catch (error) {
       return error instanceof Error ? error.message : 'Saisie refusée.'
@@ -129,44 +206,67 @@ export function useMatch() {
   }
 
   function undo() {
-    if (session.value?.undo()) touch()
+    if (session.value?.undo()) {
+      touch()
+      persist()
+    }
   }
 
   function undoTurn() {
-    if (session.value?.undoTurn()) touch()
+    if (session.value?.undoTurn()) {
+      touch()
+      persist()
+    }
   }
 
+  /**
+   * Quitte l'écran de partie.
+   *
+   * Une partie non terminée **reste enregistrée en cours** : c'est tout
+   * l'intérêt de #31. Pour s'en débarrasser, il faut l'abandonner explicitement.
+   */
   function quit() {
     session.value = null
     rule.value = null
-    isPaused.value = false
+    gameId.value = null
+    storageError.value = null
     touch()
   }
 
+  /** §4.4 — abandon explicite : la partie sort des reprises proposées. */
+  async function abandon() {
+    const id = gameId.value
+    quit()
+    if (id) await abandonGame(id)
+  }
+
   function snapshot(): GameSnapshot<unknown> | null {
-    return session.value?.toSnapshot() ?? null
+    return (session.value?.toSnapshot() as GameSnapshot<unknown>) ?? null
   }
 
   return {
     rule,
+    gameId,
     view,
     isActive,
     isFinished,
-    isPaused,
     winner,
     canUndo,
     checkout,
     lastEffects,
+    storageError,
     inputMode,
     effectiveInputMode,
     requiresDartDetail,
     start,
+    resume,
     rematch,
     throwDart,
     submitTurnTotal,
     undo,
     undoTurn,
     quit,
+    abandon,
     snapshot,
   }
 }
