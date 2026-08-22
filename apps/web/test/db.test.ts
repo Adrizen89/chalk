@@ -78,6 +78,7 @@ describe('schéma', () => {
       'players',
       'settings',
       'syncQueue',
+      'trainingSessions',
     ])
   })
 

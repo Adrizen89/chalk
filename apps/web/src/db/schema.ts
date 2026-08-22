@@ -119,13 +119,33 @@ export interface StoredCustomExercise {
 }
 
 /**
+ * Séance d'entraînement — §4.5, #48.
+ *
+ * « Composition d'une séance : enchaînement de plusieurs exercices, avec durée
+ *   estimée. »
+ *
+ * La séance n'est qu'une liste ordonnée d'identifiants d'exercices : les
+ * résultats restent enregistrés exercice par exercice, ce qui évite d'avoir
+ * deux historiques à réconcilier.
+ */
+export interface StoredSession {
+  readonly id: string
+  readonly name: string
+  readonly exerciseIds: readonly string[]
+  readonly createdAt: number
+  readonly updatedAt: number
+  readonly lastRunAt?: number
+  readonly runs: number
+}
+
+/**
  * Version du schéma.
  *
  * Toute évolution ajoute une version et une migration — jamais une
  * modification en place : les utilisateurs ont déjà des parties en base, et
  * §4.4 promet de les retrouver.
  */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /** Schéma initial. Conservé tel quel : Dexie rejoue les versions dans l'ordre. */
 export const STORES_V1 = {
@@ -141,4 +161,9 @@ export const STORES_V2 = {
   customExercises: 'id, updatedAt',
 } as const
 
-export const STORES = { ...STORES_V1, ...STORES_V2 } as const
+/** Version 3 — séances d'entraînement (§4.5, #48). */
+export const STORES_V3 = {
+  trainingSessions: 'id, updatedAt',
+} as const
+
+export const STORES = { ...STORES_V1, ...STORES_V2, ...STORES_V3 } as const

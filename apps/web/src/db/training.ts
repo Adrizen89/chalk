@@ -11,7 +11,7 @@ import { validateCustomExercise } from '@chalk/core'
 import { db } from './database.js'
 import { toStorable } from './storable.js'
 import { randomId } from '../lib/id.js'
-import type { StoredCustomExercise, StoredExerciseResult } from './schema.js'
+import type { StoredCustomExercise, StoredExerciseResult, StoredSession } from './schema.js'
 
 /** Un résultat est-il meilleur qu'un autre, selon la métrique de l'exercice ? */
 export function isBetter(
@@ -134,4 +134,79 @@ export async function deleteCustomExercise(id: string): Promise<void> {
 /** Nouvel identifiant pour un exercice créé par l'utilisateur. */
 export function newCustomExerciseId(): string {
   return `custom-${randomId()}`
+}
+
+// --- Séances (§4.5, #48) --------------------------------------------------
+
+/**
+ * Durée estimée d'un exercice, en secondes — §4.5.
+ *
+ * Estimée d'abord sur les durées réellement mesurées : c'est ce qui rend
+ * l'annonce honnête. Sans historique, on retombe sur une cadence moyenne de
+ * lancer. Le §4.5 demande une durée estimée, pas une promesse.
+ */
+const SECONDS_PER_DART = 6
+const DEFAULT_EXERCISE_SECONDS = 4 * 60
+
+export async function estimateExerciseSeconds(exerciseId: string): Promise<number> {
+  const history = await exerciseHistory(exerciseId, 10)
+  if (history.length === 0) return DEFAULT_EXERCISE_SECONDS
+
+  const measured = history.filter((entry) => typeof entry.durationSeconds === 'number')
+  if (measured.length > 0) {
+    const total = measured.reduce((sum, entry) => sum + (entry.durationSeconds ?? 0), 0)
+    return Math.round(total / measured.length)
+  }
+
+  // Pas de durée mesurée : on l'approche par le nombre de fléchettes lancées.
+  const darts = history.reduce((sum, entry) => sum + entry.dartsThrown, 0) / history.length
+  return Math.max(60, Math.round(darts * SECONDS_PER_DART))
+}
+
+export async function estimateSessionSeconds(exerciseIds: readonly string[]): Promise<number> {
+  let total = 0
+  for (const id of exerciseIds) total += await estimateExerciseSeconds(id)
+  return total
+}
+
+export async function listSessions(): Promise<StoredSession[]> {
+  return db().trainingSessions.orderBy('updatedAt').reverse().toArray()
+}
+
+export async function saveSession(input: {
+  id?: string
+  name: string
+  exerciseIds: readonly string[]
+}): Promise<StoredSession> {
+  const name = input.name.trim()
+  if (!name) throw new Error('Une séance doit avoir un nom.')
+  if (input.exerciseIds.length === 0)
+    throw new Error('Une séance doit contenir au moins un exercice.')
+
+  const id = input.id ?? `session-${randomId()}`
+  const existing = await db().trainingSessions.get(id)
+  const now = Date.now()
+
+  const record: StoredSession = {
+    id,
+    name,
+    exerciseIds: [...input.exerciseIds],
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+    ...(existing?.lastRunAt !== undefined ? { lastRunAt: existing.lastRunAt } : {}),
+    runs: existing?.runs ?? 0,
+  }
+  await db().trainingSessions.put(toStorable(record))
+  return record
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  await db().trainingSessions.delete(id)
+}
+
+/** Enregistre qu'une séance a été menée à son terme. */
+export async function markSessionRun(id: string): Promise<void> {
+  const existing = await db().trainingSessions.get(id)
+  if (!existing) return
+  await db().trainingSessions.update(id, { lastRunAt: Date.now(), runs: existing.runs + 1 })
 }

@@ -92,10 +92,15 @@ export function useTraining() {
     if (!current || !rule || saved.value) return
 
     try {
+      /*
+       * La durée est enregistrée pour **tous** les exercices, pas seulement
+       * les chronométrés : c'est elle qui permet d'annoncer une durée estimée
+       * de séance qui corresponde à la réalité (§4.5, #48).
+       */
       const outcome = await saveExerciseResult({
         exerciseId: rule.id,
         result: current.result,
-        ...(isTimed.value ? { durationSeconds: elapsedSeconds.value } : {}),
+        durationSeconds: elapsedSeconds.value,
       })
       isPersonalBest.value = outcome.isPersonalBest
       saved.value = true

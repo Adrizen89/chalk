@@ -10,9 +10,10 @@ import type {
   StoredExerciseResult,
   StoredGame,
   StoredPlayer,
+  StoredSession,
   StoredSetting,
 } from './schema.js'
-import { STORES_V1, STORES_V2 } from './schema.js'
+import { STORES_V1, STORES_V2, STORES_V3 } from './schema.js'
 
 export class ChalkDatabase extends Dexie {
   games!: EntityTable<StoredGame, 'id'>
@@ -21,6 +22,7 @@ export class ChalkDatabase extends Dexie {
   syncQueue!: EntityTable<PendingSync, 'id'>
   exerciseResults!: EntityTable<StoredExerciseResult, 'id'>
   customExercises!: EntityTable<StoredCustomExercise, 'id'>
+  trainingSessions!: EntityTable<StoredSession, 'id'>
 
   constructor(name = 'chalk') {
     super(name)
@@ -40,6 +42,12 @@ export class ChalkDatabase extends Dexie {
      * zéro.
      */
     this.version(2).stores(STORES_V2)
+
+    /*
+     * Version 3 — séances d'entraînement (§4.5). Même principe : une table
+     * ajoutée, rien de transformé.
+     */
+    this.version(3).stores(STORES_V3)
   }
 }
 

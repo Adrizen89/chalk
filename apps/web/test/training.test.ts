@@ -15,7 +15,7 @@ import { getSetting, setSetting } from '@/db/settings'
 import { describeConfiguration } from '@/composables/useFavourites'
 import { toStorable } from '@/db/storable'
 import { ref } from 'vue'
-import { SCHEMA_VERSION, STORES_V1 } from '@/db/schema'
+import { SCHEMA_VERSION, STORES_V1, STORES_V2 } from '@/db/schema'
 import {
   deleteCustomExercise,
   exerciseHistory,
@@ -27,7 +27,14 @@ import {
   progressCurve,
   saveCustomExercise,
   saveExerciseResult,
+  deleteSession,
+  estimateExerciseSeconds,
+  estimateSessionSeconds,
+  listSessions,
+  markSessionRun,
+  saveSession,
 } from '@/db/training'
+import { formatDuration } from '@/composables/useSession'
 
 let database: ChalkDatabase
 let counter = 0
@@ -357,5 +364,116 @@ describe('écriture de données réactives (régression)', () => {
     expect(brut).toEqual({ a: [{ b: [1, 2, 3] }] })
     // La copie est bien détachée du Proxy réactif.
     expect(JSON.stringify(brut)).toBe(JSON.stringify({ a: [{ b: [1, 2, 3] }] }))
+  })
+})
+
+describe('séances (§4.5, #48)', () => {
+  it('enregistre une séance et son ordre d’exercices', async () => {
+    const seance = await saveSession({
+      name: 'Doubles du soir',
+      exerciseIds: ['bobs-27', 'catch-40', 'tour-des-doubles'],
+    })
+    expect(seance.exerciseIds).toEqual(['bobs-27', 'catch-40', 'tour-des-doubles'])
+    expect(await listSessions()).toHaveLength(1)
+  })
+
+  it('refuse une séance sans nom ou sans exercice', async () => {
+    await expect(saveSession({ name: '  ', exerciseIds: ['bobs-27'] })).rejects.toThrow(/nom/)
+    await expect(saveSession({ name: 'Vide', exerciseIds: [] })).rejects.toThrow(/exercice/)
+  })
+
+  it('met à jour sans dupliquer et préserve la date de création', async () => {
+    const premier = await saveSession({ name: 'Séance', exerciseIds: ['bobs-27'] })
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    const second = await saveSession({
+      id: premier.id,
+      name: 'Séance renommée',
+      exerciseIds: ['catch-40'],
+    })
+    expect(await listSessions()).toHaveLength(1)
+    expect(second.createdAt).toBe(premier.createdAt)
+    expect(second.exerciseIds).toEqual(['catch-40'])
+  })
+
+  it('compte les séances menées à terme', async () => {
+    const seance = await saveSession({ name: 'S', exerciseIds: ['bobs-27'] })
+    await markSessionRun(seance.id)
+    await markSessionRun(seance.id)
+    const [stored] = await listSessions()
+    expect(stored?.runs).toBe(2)
+    expect(stored?.lastRunAt).toBeDefined()
+  })
+
+  it('ignore une séance inconnue plutôt que d’échouer', async () => {
+    await expect(markSessionRun('inexistante')).resolves.toBeUndefined()
+  })
+
+  it('supprime une séance', async () => {
+    const seance = await saveSession({ name: 'S', exerciseIds: ['bobs-27'] })
+    await deleteSession(seance.id)
+    expect(await listSessions()).toHaveLength(0)
+  })
+
+  /**
+   * §4.5 demande une durée **estimée**. Elle s'appuie d'abord sur les durées
+   * réellement mesurées : sans historique, l'estimation resterait une promesse
+   * en l'air.
+   */
+  it('estime la durée depuis les séances réellement mesurées', async () => {
+    await saveExerciseResult({ exerciseId: 'bobs-27', result: result(), durationSeconds: 200 })
+    await saveExerciseResult({ exerciseId: 'bobs-27', result: result(), durationSeconds: 400 })
+    expect(await estimateExerciseSeconds('bobs-27')).toBe(300)
+  })
+
+  it('retombe sur une estimation par défaut sans historique', async () => {
+    expect(await estimateExerciseSeconds('jamais-fait')).toBeGreaterThan(0)
+  })
+
+  it('estime une séance comme la somme de ses exercices', async () => {
+    await saveExerciseResult({ exerciseId: 'bobs-27', result: result(), durationSeconds: 120 })
+    await saveExerciseResult({ exerciseId: 'catch-40', result: result(), durationSeconds: 180 })
+    expect(await estimateSessionSeconds(['bobs-27', 'catch-40'])).toBe(300)
+  })
+
+  it('formate une durée lisible', () => {
+    expect(formatDuration(120)).toBe('2 min')
+    expect(formatDuration(20)).toBe('1 min')
+    expect(formatDuration(3900)).toBe('1 h 05')
+  })
+})
+
+describe('migration du schéma v2 → v3 (§4.4)', () => {
+  it('conserve résultats et exercices en ajoutant les séances', async () => {
+    const name = `chalk-migration-v3-${counter}`
+    await database.delete()
+
+    const v2 = new Dexie(name)
+    v2.version(1).stores(STORES_V1)
+    v2.version(2).stores(STORES_V2)
+    await v2.open()
+    await v2.table('exerciseResults').put({
+      id: 'r1',
+      exerciseId: 'bobs-27',
+      at: 1,
+      metric: 'score',
+      metricValue: 40,
+      higherIsBetter: true,
+      score: 40,
+      dartsThrown: 60,
+      hits: 10,
+      attempts: 20,
+      bestStreak: 2,
+    })
+    v2.close()
+
+    const migrated = new ChalkDatabase(name)
+    useDatabaseForTests(migrated)
+    await migrated.open()
+
+    expect(migrated.verno).toBe(SCHEMA_VERSION)
+    expect((await migrated.exerciseResults.get('r1'))?.metricValue).toBe(40)
+    expect(await migrated.trainingSessions.count()).toBe(0)
+
+    database = migrated
   })
 })

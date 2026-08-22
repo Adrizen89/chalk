@@ -6,12 +6,13 @@
  * qu'on paramètre. Chaque réglage y est parce qu'il change l'usage réel, pas
  * pour offrir un choix.
  */
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { ScoreSize, ThemePreference } from '@/composables/useSettings'
 import { useSettings } from '@/composables/useSettings'
 import { useFeedback } from '@/composables/useFeedback'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { useWakeLock } from '@/composables/useWakeLock'
+import { exportDarts, exportEverything, exportGames, exportTraining } from '@/lib/export'
 
 defineEmits<{ close: [] }>()
 
@@ -21,6 +22,24 @@ const install = usePwaInstall()
 const wakeLock = useWakeLock()
 
 onMounted(() => void settings.load())
+
+/** §4.7 et §6 — export CSV, qui sert aussi la demande RGPD. */
+const exporting = ref(false)
+const exportMessage = ref<string | null>(null)
+
+async function runExport(label: string, task: () => Promise<unknown>) {
+  exporting.value = true
+  exportMessage.value = null
+  try {
+    await task()
+    exportMessage.value = `${label} exporté.`
+  } catch (error) {
+    console.error('Export impossible', error)
+    exportMessage.value = "L'export a échoué."
+  } finally {
+    exporting.value = false
+  }
+}
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: 'Sombre' },
@@ -176,6 +195,55 @@ async function toggleVibration() {
         <p v-if="!wakeLock.supported" class="text-xs text-chalk-dim">
           Ce navigateur ne permet pas de garder l'écran allumé. Sur iOS, il faut installer
           l'application sur l'écran d'accueil.
+        </p>
+      </section>
+
+      <!-- §4.7 — export CSV. §6 — l'export complet répond à une demande RGPD. -->
+      <section class="space-y-2">
+        <h2 class="text-xs font-semibold tracking-wide text-chalk-dim uppercase">
+          Export des données
+        </h2>
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            class="tap text-xs text-chalk disabled:opacity-40"
+            :class="'bg-slate-surface'"
+            :disabled="exporting"
+            @click="runExport('Parties', exportGames)"
+          >
+            Parties
+          </button>
+          <button
+            type="button"
+            class="tap bg-slate-surface text-xs text-chalk disabled:opacity-40"
+            :disabled="exporting"
+            @click="runExport('Fléchettes', exportDarts)"
+          >
+            Fléchettes
+          </button>
+          <button
+            type="button"
+            class="tap bg-slate-surface text-xs text-chalk disabled:opacity-40"
+            :disabled="exporting"
+            @click="runExport('Entraînement', exportTraining)"
+          >
+            Entraînement
+          </button>
+        </div>
+        <button
+          type="button"
+          class="tap h-11 w-full bg-slate-raised text-xs font-semibold text-chalk disabled:opacity-40"
+          :disabled="exporting"
+          @click="runExport('Tout', exportEverything)"
+        >
+          Tout exporter
+        </button>
+        <p v-if="exportMessage" class="text-xs text-chalk-dim" role="status">
+          {{ exportMessage }}
+        </p>
+        <p class="text-xs text-chalk-dim">
+          Fichiers CSV lisibles par un tableur français. L'export complet contient l'intégralité de
+          vos données.
         </p>
       </section>
 

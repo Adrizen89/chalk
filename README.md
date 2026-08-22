@@ -219,6 +219,10 @@ sets.
 Le lot 2 est entamé par sa partie locale : historique et statistiques (#42,
 #43, #44), qui ne dépendent d'aucun serveur.
 
+Le module Entraînement est complet : bibliothèque, exercices personnalisés avec
+partage par lien, séances enchaînées avec durée estimée. L'export CSV couvre
+aussi la demande RGPD du §6.
+
 Prochaine étape du lot 1 : le **test terrain de 20 parties** (#78), que le
 cahier des charges pose en jalon bloquant avant le lot 2 — « le retour d'usage
 sur les 20 premières parties fera probablement bouger des choix d'interface ».
