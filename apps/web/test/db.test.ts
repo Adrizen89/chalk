@@ -23,6 +23,7 @@ import {
 import { addPlayer, listPlayers, markPlayed, migrateLegacyPlayers } from '@/db/players'
 import { getSetting, setSetting } from '@/db/settings'
 import { SCHEMA_VERSION, STORES } from '@/db/schema'
+import { randomId } from '@/lib/id'
 
 const T = (n: number): Dart => ({ segment: n, multiplier: 3 }) as Dart
 const D = (n: number): Dart => ({ segment: n, multiplier: 2 }) as Dart
@@ -409,5 +410,38 @@ describe('robustesse aux proxies réactifs de Vue', () => {
     expect(restored.undo()).toBe(true)
     await persist('g1', restored)
     expect((await getGame('g1'))?.inputs).toHaveLength(1)
+  })
+})
+
+describe('génération d’identifiants hors contexte sécurisé', () => {
+  /**
+   * `crypto.randomUUID` n'existe qu'en contexte sécurisé (HTTPS ou localhost).
+   * Ouvrir l'application depuis un téléphone du réseau local — exactement ce
+   * que demande le test terrain (#78) — la prive de cette fonction, et sans
+   * repli il devenait impossible d'ajouter un joueur.
+   */
+  it('produit un identifiant valide sans crypto.randomUUID', () => {
+    const vrai = crypto.randomUUID
+    // @ts-expect-error simulation d'un contexte non sécurisé
+    delete crypto.randomUUID
+    try {
+      const id = randomId()
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      expect(randomId()).not.toBe(id)
+    } finally {
+      crypto.randomUUID = vrai
+    }
+  })
+
+  it('permet d’ajouter un joueur sans crypto.randomUUID', async () => {
+    const vrai = crypto.randomUUID
+    // @ts-expect-error simulation d'un contexte non sécurisé
+    delete crypto.randomUUID
+    try {
+      const player = await addPlayer('Adrien')
+      expect(player?.id).toBeTruthy()
+    } finally {
+      crypto.randomUUID = vrai
+    }
   })
 })

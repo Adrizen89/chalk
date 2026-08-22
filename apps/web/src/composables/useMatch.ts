@@ -21,6 +21,7 @@ import type { AnyGameRule, Dart, GameEffect, GameSnapshot, GameView, PlayerRef }
 import type { X01State } from '@chalk/core'
 import { GameSession, baseRuleId, findRule, legStateOf, suggestCheckout } from '@chalk/core'
 import { StorageFullError, abandonGame, markPlayed, saveGame } from '@/db'
+import { randomId } from '@/lib/id'
 import type { StoredGame } from '@/db'
 
 /** §4.3 — deux modes de saisie, choisis dans les réglages. */
@@ -143,7 +144,7 @@ export function useMatch() {
   ) {
     rule.value = gameRule
     session.value = new GameSession(gameRule, config, players)
-    gameId.value = crypto.randomUUID()
+    gameId.value = randomId()
     lastLaunch = { rule: gameRule, config, players }
     inputMode.value = gameRule.requiresDartDetail ? 'dart' : mode
     storageError.value = null

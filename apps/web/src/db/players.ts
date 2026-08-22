@@ -6,6 +6,7 @@
  */
 
 import type { PlayerRef } from '@chalk/core'
+import { randomId } from '../lib/id.js'
 import { db } from './database.js'
 import type { StoredPlayer } from './schema.js'
 
@@ -28,7 +29,7 @@ export async function addPlayer(name: string): Promise<StoredPlayer | null> {
 
   const now = Date.now()
   const player: StoredPlayer = {
-    id: crypto.randomUUID(),
+    id: randomId(),
     name: trimmed,
     createdAt: now,
     lastPlayedAt: 0,
