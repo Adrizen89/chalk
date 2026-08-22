@@ -116,7 +116,7 @@ function shortcut(value: number) {
         v-for="digit in ['1', '2', '3', '4', '5', '6', '7', '8', '9']"
         :key="digit"
         type="button"
-        class="tap num h-14 bg-slate-raised text-2xl text-chalk active:bg-slate-line"
+        class="tap num h-14 bg-slate-raised text-2xl text-chalk active:bg-slate-line sm:landscape:h-12"
         @click="press(digit)"
       >
         {{ digit }}
@@ -124,7 +124,7 @@ function shortcut(value: number) {
 
       <button
         type="button"
-        class="tap h-14 bg-slate-raised text-lg text-chalk-dim active:bg-slate-line"
+        class="tap h-14 bg-slate-raised text-lg text-chalk-dim active:bg-slate-line sm:landscape:h-12"
         aria-label="Effacer le dernier chiffre"
         @click="backspace()"
       >
@@ -132,14 +132,14 @@ function shortcut(value: number) {
       </button>
       <button
         type="button"
-        class="tap num h-14 bg-slate-raised text-2xl text-chalk active:bg-slate-line"
+        class="tap num h-14 bg-slate-raised text-2xl text-chalk active:bg-slate-line sm:landscape:h-12"
         @click="press('0')"
       >
         0
       </button>
       <button
         type="button"
-        class="tap h-14 bg-accent text-base font-bold text-slate-board disabled:opacity-30"
+        class="tap h-14 bg-accent text-base font-bold text-slate-board disabled:opacity-30 sm:landscape:h-12"
         :disabled="!canSubmit || asksDartCount"
         @click="submit()"
       >

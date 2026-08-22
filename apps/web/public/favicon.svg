@@ -1,0 +1,37 @@
+<!--
+  Icône source de Chalk.
+
+  Une cible dessinée à la craie sur l'ardoise : le nom du projet vient de la
+  craie du tableau de score traditionnel. Le tracé est volontairement épais et
+  peu détaillé — l'icône doit rester lisible à 48 px sur un écran d'accueil,
+  pas seulement à 512.
+
+  Toutes les images de l'application (icônes, icône maskable, apple-touch-icon,
+  écrans de démarrage iOS) sont générées depuis ce fichier par
+  `scripts/generate-assets.mjs`. Ne pas modifier les PNG à la main.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0b1220" />
+  <g
+    transform="rotate(-6 256 256)"
+    fill="none"
+    stroke="#f2f5f9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="256" cy="256" r="182" stroke-width="16" />
+    <circle cx="256" cy="256" r="132" stroke-width="12" />
+    <circle cx="256" cy="256" r="78" stroke-width="10" />
+    <g stroke-width="11" opacity="0.92">
+      <path d="M256 78 V 178" />
+      <path d="M256 334 V 434" />
+      <path d="M78 256 H 178" />
+      <path d="M334 256 H 434" />
+      <path d="M130 130 L 201 201" />
+      <path d="M311 311 L 382 382" />
+      <path d="M382 130 L 311 201" />
+      <path d="M201 311 L 130 382" />
+    </g>
+  </g>
+  <circle cx="256" cy="256" r="34" fill="#f6c453" />
+</svg>

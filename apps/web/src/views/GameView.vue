@@ -14,7 +14,7 @@
  * lui permet de servir X01, Cricket, Killer et Around the Clock — et les règles
  * maison à venir.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Dart } from '@chalk/core'
 import CheckoutHint from '@/components/CheckoutHint.vue'
 import CricketMarks from '@/components/CricketMarks.vue'
@@ -23,6 +23,7 @@ import ScoreBoard from '@/components/ScoreBoard.vue'
 import TurnDarts from '@/components/TurnDarts.vue'
 import TurnTotalPad from '@/components/TurnTotalPad.vue'
 import { useMatch } from '@/composables/useMatch'
+import { useWakeLock } from '@/composables/useWakeLock'
 
 const emit = defineEmits<{ quit: [] }>()
 
@@ -42,6 +43,15 @@ const {
   undoTurn,
   rematch,
 } = match
+
+/**
+ * §5 — l'écran ne doit pas s'éteindre pendant la partie. Le verrou est pris à
+ * l'entrée et relâché à la sortie : le garder au-delà consommerait de la
+ * batterie pour rien.
+ */
+const wakeLock = useWakeLock()
+onMounted(() => void wakeLock.request())
+onUnmounted(() => void wakeLock.release())
 
 const error = ref<string | null>(null)
 /** §4.9 — annonce des 180 et fin de leg, en bandeau non bloquant. */
@@ -85,7 +95,10 @@ function onTurnTotal(total: number, dartsUsed?: number) {
 </script>
 
 <template>
-  <div v-if="view" class="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden px-3">
+  <div
+    v-if="view"
+    class="mx-auto flex h-full w-full max-w-lg flex-col overflow-hidden px-3 sm:landscape:max-w-5xl"
+  >
     <header class="safe-top flex shrink-0 items-center gap-2 pb-2">
       <button
         type="button"
@@ -117,73 +130,84 @@ function onTurnTotal(total: number, dartsUsed?: number) {
       </button>
     </header>
 
-    <!-- Zone d'information : elle cède la place au pavé de saisie si l'écran
-         est petit, plutôt que de le repousser hors de portée du pouce. -->
-    <div class="min-h-0 flex-1 overflow-y-auto">
-      <ScoreBoard :view="view" :dense="hasOwnBoard" />
-      <CricketMarks v-if="rule?.id === 'cricket'" :view="view" class="mt-2" />
-    </div>
+    <!-- §3.2 : portrait par défaut, paysage exploité dès qu'il y a la largeur
+         — tablette posée près de la cible, ou téléphone couché. -->
+    <div class="flex min-h-0 flex-1 flex-col sm:landscape:flex-row sm:landscape:gap-4">
+      <!-- Zone d'information : elle cède la place au pavé de saisie si l'écran
+           est petit, plutôt que de le repousser hors de portée du pouce. -->
+      <div class="min-h-0 flex-1 overflow-y-auto">
+        <ScoreBoard :view="view" :dense="hasOwnBoard" />
+        <CricketMarks v-if="rule?.id === 'cricket'" :view="view" class="mt-2" />
+      </div>
 
-    <div class="mt-2 shrink-0 space-y-2">
-      <TurnDarts
-        v-if="effectiveInputMode === 'dart'"
-        :darts="view.turnDarts"
-        :show-total="rule?.id === 'x01'"
-      />
-      <CheckoutHint v-if="checkout" :best="checkout.best" :alternatives="checkout.alternatives" />
-    </div>
+      <!-- La saisie occupe la moitié basse en portrait, la colonne droite en
+           paysage : dans les deux cas, sous le pouce (§5). -->
+      <div
+        class="flex min-h-0 shrink-0 flex-col justify-end overflow-y-auto sm:landscape:w-1/2 sm:landscape:max-w-md"
+      >
+        <div class="mt-2 space-y-2">
+          <TurnDarts
+            v-if="effectiveInputMode === 'dart'"
+            :darts="view.turnDarts"
+            :show-total="rule?.id === 'x01'"
+          />
+          <CheckoutHint
+            v-if="checkout"
+            :best="checkout.best"
+            :alternatives="checkout.alternatives"
+          />
 
-    <!-- §5 : messages courts, jamais bloquants. -->
-    <p
-      v-if="banner"
-      class="mt-2 shrink-0 rounded-xl bg-accent px-3 py-2 text-center text-lg font-bold text-slate-board"
-      role="status"
-    >
-      {{ banner }}
-    </p>
-    <p
-      v-else-if="error"
-      class="mt-2 shrink-0 text-center text-sm font-medium text-bust"
-      role="alert"
-    >
-      {{ error }}
-    </p>
+          <!-- §5 : messages courts, jamais bloquants. -->
+          <p
+            v-if="banner"
+            class="rounded-xl bg-accent px-3 py-2 text-center text-lg font-bold text-slate-board"
+            role="status"
+          >
+            {{ banner }}
+          </p>
+          <p v-else-if="error" class="text-center text-sm font-medium text-bust" role="alert">
+            {{ error }}
+          </p>
+        </div>
 
-    <!-- La saisie occupe la moitié basse : on la tient d'une main (§5). -->
-    <div class="safe-bottom shrink-0 pt-2">
-      <template v-if="!isFinished">
-        <p class="mb-2 text-center text-xs text-chalk-dim">
-          Au tour de <span class="font-bold text-accent">{{ activeName }}</span>
-        </p>
-        <DartPad v-if="effectiveInputMode === 'dart'" @throw="onDart" />
-        <TurnTotalPad v-else :remaining="remaining" @submit="onTurnTotal" />
-      </template>
+        <div class="safe-bottom pt-2">
+          <template v-if="!isFinished">
+            <!-- Masqué en paysage : la place manque, et l'information est déjà
+                 portée par le badge « À vous » du tableau de score. -->
+            <p class="mb-2 text-center text-xs text-chalk-dim sm:landscape:hidden">
+              Au tour de <span class="font-bold text-accent">{{ activeName }}</span>
+            </p>
+            <DartPad v-if="effectiveInputMode === 'dart'" @throw="onDart" />
+            <TurnTotalPad v-else :remaining="remaining" @submit="onTurnTotal" />
+          </template>
 
-      <!-- §4.4 — écran de fin : vainqueur et relance en un tap. -->
-      <div v-else class="rounded-2xl border border-accent/50 bg-accent/10 p-4 text-center">
-        <p class="text-sm text-chalk-dim">Vainqueur</p>
-        <p class="mt-1 text-3xl font-bold text-accent">{{ winner?.name }}</p>
-        <dl class="mt-3 flex justify-center gap-4 text-xs text-chalk-dim">
-          <div v-for="stat in winner?.secondary ?? []" :key="stat.label" class="flex gap-1">
-            <dt>{{ stat.label }}</dt>
-            <dd class="num font-bold text-chalk">{{ stat.value }}</dd>
+          <!-- §4.4 — écran de fin : vainqueur et relance en un tap. -->
+          <div v-else class="rounded-2xl border border-accent/50 bg-accent/10 p-4 text-center">
+            <p class="text-sm text-chalk-dim">Vainqueur</p>
+            <p class="mt-1 text-3xl font-bold text-accent">{{ winner?.name }}</p>
+            <dl class="mt-3 flex justify-center gap-4 text-xs text-chalk-dim">
+              <div v-for="stat in winner?.secondary ?? []" :key="stat.label" class="flex gap-1">
+                <dt>{{ stat.label }}</dt>
+                <dd class="num font-bold text-chalk">{{ stat.value }}</dd>
+              </div>
+            </dl>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="tap h-14 bg-slate-raised text-sm font-semibold text-chalk"
+                @click="emit('quit')"
+              >
+                Terminer
+              </button>
+              <button
+                type="button"
+                class="tap h-14 bg-accent text-sm font-bold text-slate-board"
+                @click="rematch()"
+              >
+                Revanche
+              </button>
+            </div>
           </div>
-        </dl>
-        <div class="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            class="tap h-14 bg-slate-raised text-sm font-semibold text-chalk"
-            @click="emit('quit')"
-          >
-            Terminer
-          </button>
-          <button
-            type="button"
-            class="tap h-14 bg-accent text-sm font-bold text-slate-board"
-            @click="rematch()"
-          >
-            Revanche
-          </button>
         </div>
       </div>
     </div>

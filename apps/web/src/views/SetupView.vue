@@ -20,7 +20,9 @@ import {
   X01_PRESETS,
   drawKillerNumbers,
 } from '@chalk/core'
+import InstallBanner from '@/components/InstallBanner.vue'
 import type { InputMode } from '@/composables/useMatch'
+import { usePwaInstall } from '@/composables/usePwaInstall'
 import { usePlayerBook, avatarColor, initials } from '@/composables/usePlayerBook'
 
 const emit = defineEmits<{
@@ -28,6 +30,12 @@ const emit = defineEmits<{
 }>()
 
 const { players: book, add } = usePlayerBook()
+
+/**
+ * §3.2 — l'invitation à l'installation vit ici, sur l'écran de configuration :
+ * c'est le seul endroit où l'on n'est pas en train de jouer (§5).
+ */
+const install = usePwaInstall()
 
 const ruleId = ref('x01')
 const selectedIds = ref<string[]>([])
@@ -103,6 +111,8 @@ function start() {
       <h1 class="text-3xl font-bold tracking-tight">Chalk</h1>
       <p class="text-sm text-chalk-dim">Marqueur de points</p>
     </header>
+
+    <InstallBanner v-if="install.shouldOffer.value" />
 
     <section>
       <h2 class="mb-2 text-xs font-semibold tracking-wide text-chalk-dim uppercase">Mode de jeu</h2>
@@ -325,11 +335,24 @@ function start() {
     <!-- §5 : l'action principale reste en bas de l'écran, sous le pouce. -->
     <button
       type="button"
-      class="tap safe-bottom mt-auto h-16 bg-accent text-lg font-bold text-slate-board disabled:opacity-30"
+      class="tap mt-auto h-16 bg-accent text-lg font-bold text-slate-board disabled:opacity-30"
       :disabled="!canStart"
       @click="start()"
     >
       Lancer la partie
     </button>
+
+    <!-- §3.2 : point d'entrée permanent et discret, même après un refus de
+         l'invitation — l'application n'étant sur aucun store, c'est le seul
+         chemin vers l'installation. -->
+    <button
+      v-if="!install.installed.value && !install.shouldOffer.value"
+      type="button"
+      class="safe-bottom text-center text-xs text-chalk-dim underline underline-offset-2"
+      @click="install.offerAgain()"
+    >
+      Installer Chalk sur cet appareil
+    </button>
+    <div v-else class="safe-bottom" />
   </div>
 </template>

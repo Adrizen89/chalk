@@ -36,9 +36,11 @@ usage à une main, taille des cibles tactiles).
 ## Structure
 
 ```
-packages/core   Moteur de règles — TypeScript pur, zéro dépendance
-apps/web        Application Vue 3 + Vite + Tailwind
-docs/adr        Décisions d'architecture
+packages/core        Moteur de règles — TypeScript pur, zéro dépendance
+apps/web             Application Vue 3 + Vite + Tailwind, PWA installable
+apps/web/assets      Sources vectorielles des icônes
+apps/web/scripts     Génération des icônes et des écrans de démarrage
+docs/adr             Décisions d'architecture
 ```
 
 ### `packages/core`
@@ -86,12 +88,38 @@ re-décidées écran par écran : palier typographique « score » lisible à 2�
 cibles tactiles d'au moins 48 px, zones d'action dans la moitié basse de
 l'écran, aucune fenêtre modale pendant une partie, safe areas gérées.
 
+### PWA
+
+L'application s'installe sur l'écran d'accueil et se comporte comme une
+application native : `display: standalone`, jeu d'icônes complet, écrans de
+démarrage iOS, et service worker qui précache la coquille — **elle s'ouvre et
+se joue sans réseau**.
+
+Elle n'est ni sur l'App Store ni sur le Play Store. C'est un choix assumé — pas
+de commission, pas de validation d'Apple, mises à jour instantanées — mais il
+implique que l'installation passe par un lien à partager. D'où l'invitation
+explicite : le prompt natif sur Android, la marche à suivre sur iOS Safari où
+l'API n'existe pas.
+
+Les mises à jour ne s'appliquent jamais toutes seules : une bannière les
+propose, et elle reste masquée tant qu'une partie est en cours.
+
+Toutes les images dérivent d'un seul SVG :
+
+```bash
+pnpm --filter @chalk/web generate:assets
+```
+
+Les PNG produits sont versionnés — la CI n'a pas à dépendre de `sharp` pour
+construire l'application.
+
 ## État d'avancement
 
-Lot 0 et lot 1 en cours. Le moteur couvre les quatre modes prioritaires, et
-l'application permet de jouer une partie complète dans les deux modes de saisie.
+Lot 0 et lot 1 en cours. Le moteur couvre les quatre modes prioritaires,
+l'application permet de jouer une partie complète dans les deux modes de
+saisie, et elle s'installe sur téléphone en fonctionnant hors ligne.
 
-Prochaines étapes du lot 1 : PWA installable et service worker (#10–#16),
-persistance IndexedDB et reprise de partie (#18, #31), legs et sets (#28).
+Prochaines étapes du lot 1 : persistance IndexedDB et reprise de partie
+(#18, #31), legs et sets (#28), carnet de joueurs complet (#33).
 
 Voir les [issues ouvertes](https://github.com/Adrizen89/chalk/issues).

@@ -3,11 +3,99 @@
   <head>
     <meta charset="UTF-8" />
     <!-- §3.2 : viewport-fit=cover pour dessiner sous l'encoche, les safe areas
-         sont gérées en CSS. maximum-scale évite le zoom involontaire pendant la
-         saisie rapide, sans bloquer le zoom d'accessibilité du système. -->
+         sont gérées en CSS. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1220" />
-    <title>Chalk</title>
+    <meta
+      name="description"
+      content="Marqueur de points aux fléchettes : X01, Cricket, Killer, Around the Clock. Fonctionne hors ligne."
+    />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-64.png" sizes="64x64" type="image/png" />
+
+    <!-- §3.2 : sur iOS, sans apple-touch-icon, l'écran d'accueil affiche une
+         capture de la page en guise d'icône. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" sizes="180x180" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chalk" />
+
+    <!-- Écrans de démarrage iOS — générés par scripts/generate-assets.mjs.
+         Sans eux, l'ouverture depuis l'écran d'accueil affiche un écran blanc. -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-440x956@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-430x932@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-402x874@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-393x852@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-428x926@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-390x844@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-375x812@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-414x896@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="/splash/splash-414x896@2x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+      href="/splash/splash-414x736@3x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="/splash/splash-375x667@2x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="/splash/splash-768x1024@2x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="/splash/splash-820x1180@2x.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="/splash/splash-1024x1366@2x.png"
+    />
+
+    <title>Chalk — Marqueur de points aux fléchettes</title>
   </head>
   <body>
     <div id="app"></div>

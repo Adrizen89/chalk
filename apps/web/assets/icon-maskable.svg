@@ -1,0 +1,35 @@
+<!--
+  Variante maskable pour Android — §3.2.
+
+  Android recadre l'icône selon la forme du lanceur (cercle, squircle, carré
+  arrondi). Le dessin doit donc tenir dans la zone sûre : un cercle de 80 % de
+  la largeur, centré. Ici la cible est réduite d'autant, et le fond couvre tout
+  le cadre pour qu'aucun coin ne soit transparent après recadrage.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0b1220" />
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <g
+      transform="rotate(-6 256 256)"
+      fill="none"
+      stroke="#f2f5f9"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <circle cx="256" cy="256" r="182" stroke-width="16" />
+      <circle cx="256" cy="256" r="132" stroke-width="12" />
+      <circle cx="256" cy="256" r="78" stroke-width="10" />
+      <g stroke-width="11" opacity="0.92">
+        <path d="M256 78 V 178" />
+        <path d="M256 334 V 434" />
+        <path d="M78 256 H 178" />
+        <path d="M334 256 H 434" />
+        <path d="M130 130 L 201 201" />
+        <path d="M311 311 L 382 382" />
+        <path d="M382 130 L 311 201" />
+        <path d="M201 311 L 130 382" />
+      </g>
+    </g>
+    <circle cx="256" cy="256" r="34" fill="#f6c453" />
+  </g>
+</svg>

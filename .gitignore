@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dev-dist/
+*.tsbuildinfo
 coverage/
 *.local
 .DS_Store
@@ -7,3 +9,6 @@ coverage/
 .env.*
 !.env.example
 .vite/
+
+# Balises générées par scripts/generate-assets.mjs, déjà inlinées dans index.html
+apps/web/scripts/splash-tags.generated.html

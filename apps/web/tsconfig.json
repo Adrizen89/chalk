@@ -4,7 +4,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "preserve",
     "noEmit": true,
-    "types": ["vite/client", "node"],
+    "types": ["vite/client", "node", "vite-plugin-pwa/vue"],
     "paths": {
       "@/*": ["./src/*"],
       "@chalk/core": ["../../packages/core/src/index.ts"]
