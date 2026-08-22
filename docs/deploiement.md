@@ -12,21 +12,24 @@ complété à ce moment-là.
 
 ---
 
-## 1. Ce qui n'est pas encore tranché
+## 1. Hébergeur retenu : Hostinger
 
-L'hébergeur reste à choisir — c'est l'issue [#2](https://github.com/Adrizen89/chalk/issues/2),
-et la décision appartient au propriétaire du projet. Deux contraintes du cahier
-des charges la cadrent :
+Décision de l'issue [#2](https://github.com/Adrizen89/chalk/issues/2). Hostinger
+est l'hébergement déjà en place, avec des datacentres dans l'UE — ce qui règle
+d'avance la contrainte RGPD du §6 pour le serveur du lot 2.
+
+Deux contraintes du cahier des charges cadrent la mise en ligne :
 
 - **HTTPS obligatoire** (§6). Sans lui, pas de service worker, donc pas de mode
-  hors ligne, donc pas d'installation sur l'écran d'accueil.
-- **Hébergement des données dans l'UE** (§6, RGPD). Sans conséquence tant que
-  l'application est statique et que tout reste sur l'appareil, mais la
-  contrainte s'appliquera pleinement au serveur du lot 2. Autant choisir dès
-  maintenant un hébergeur qui la respecte.
+  hors ligne, donc pas d'installation sur l'écran d'accueil. Hostinger fournit
+  un certificat Let's Encrypt gratuit, à activer dans le hPanel s'il ne l'est
+  pas déjà.
+- **Données dans l'UE** (§6, RGPD). Sans conséquence tant que l'application est
+  statique et que tout reste sur l'appareil, mais la contrainte s'appliquera
+  pleinement au serveur du lot 2.
 
-Les configurations des quatre cibles envisagées sont générées et versionnées :
-choisir l'une d'elles ne demande aucun travail supplémentaire.
+Les configurations Netlify, Cloudflare et nginx restent générées : changer
+d'hébergeur plus tard ne demanderait aucun travail supplémentaire.
 
 ## 2. Construire
 
@@ -49,11 +52,60 @@ automatiquement — ne jamais les modifier à la main.
 
 ## 3. Publier
 
-### Depuis GitHub Actions
+### Option A — Script local (le plus direct)
+
+```bash
+cp .env.deploy.example .env.deploy   # puis renseigner ses valeurs
+./scripts/deploy-hostinger.sh        # simulation : rien n'est publié
+./scripts/deploy-hostinger.sh --go   # publication réelle
+```
+
+Le script construit, ajoute le `.htaccess`, envoie par `rsync` sur SFTP, puis
+vérifie les en-têtes de `sw.js`. **Il tourne en simulation par défaut** : il
+faut `--go` pour écrire quoi que ce soit.
+
+L'authentification passe par une **clé SSH**, jamais par un mot de passe. Pour
+en déposer une :
+
+```bash
+ssh-keygen -t ed25519 -C "chalk-deploy"
+ssh-copy-id -p 65002 uXXXXXXXXX@srv-XXX.hstgr.io
+```
+
+Valeurs Hostinger habituelles : port **65002**, utilisateur `uXXXXXXXXX`,
+serveur `srv-XXX.hstgr.io`, destination `public_html/`. Elles se lisent dans le
+hPanel, section _Fichiers → Comptes FTP_.
+
+### Option B — GitHub Actions
 
 Chaque poussée sur `main` produit un artefact `chalk-dist`, `.htaccess`
-compris, téléchargeable depuis l'onglet Actions. C'est le chemin le plus court
-vers une mise en ligne par FTP.
+compris, téléchargeable depuis l'onglet Actions.
+
+Pour publier depuis GitHub, lancer le workflow _Build de déploiement_
+manuellement en cochant **Publier sur Hostinger**. Secrets à configurer dans
+_Settings → Secrets and variables → Actions_ :
+
+| Secret              | Valeur                                |
+| ------------------- | ------------------------------------- |
+| `HOSTINGER_HOST`    | `srv-XXX.hstgr.io`                    |
+| `HOSTINGER_USER`    | `uXXXXXXXXX`                          |
+| `HOSTINGER_SSH_KEY` | clé privée dédiée au déploiement      |
+| `HOSTINGER_PORT`    | facultatif, `65002` par défaut        |
+| `HOSTINGER_PATH`    | facultatif, `public_html/` par défaut |
+
+Et une variable `CHALK_DOMAIN` pour que le workflow vérifie les en-têtes après
+publication.
+
+La publication est volontairement **manuelle** : mettre en ligne est visible par
+les joueurs, cela mérite un geste explicite. Pour la rendre automatique à chaque
+poussée sur `main`, remplacer la condition du job `publish` par
+`if: github.ref == 'refs/heads/main'`.
+
+### Option C — FileZilla
+
+Glisser le contenu de `apps/web/dist` (fichiers cachés compris, dont
+`.htaccess`) dans `public_html/`. Le plus simple pour une première mise en
+ligne, le moins pratique ensuite.
 
 ### Configurations d'hébergement
 
@@ -91,6 +143,24 @@ Les configurations générées imposent donc :
 | `/assets/*`             | `immutable`, un an                    | nom haché : un contenu différent produit un nom différent |
 | `/icons/*`, `/splash/*` | une semaine                           | stables, mais sans hachage                                |
 
+### Le piège spécifique à Hostinger
+
+La configuration `.htaccess` habituelle des projets ADBDigital comprend un bloc
+`mod_expires` de ce genre :
+
+```apache
+ExpiresByType application/javascript "access plus 1 month"
+```
+
+**Ne pas l'ajouter ici.** `mod_expires` pose un `Cache-Control: max-age` sur
+tous les fichiers JavaScript — `sw.js` compris. Un mois de cache sur le service
+worker signifie un mois d'utilisateurs bloqués sur une version périmée.
+
+Le `.htaccess` généré n'utilise volontairement **pas** `mod_expires` : il pose
+des `Cache-Control` explicites, chemin par chemin. Les fichiers hachés de
+`/assets/` sont mis en cache un an, ce qui donne le même bénéfice sans le
+risque.
+
 **À vérifier après chaque changement d'hébergeur ou de CDN :**
 
 ```bash
@@ -125,7 +195,15 @@ exactement les mêmes en-têtes que la production. Une politique trop stricte se
 voit immédiatement dans la console du navigateur, pas trois jours après la mise
 en ligne.
 
-## 7. Vérifications après mise en ligne
+## 7. Avant la première mise en ligne
+
+- [ ] SSL activé dans le hPanel Hostinger (Let's Encrypt, gratuit)
+- [ ] `public_html/` vide, ou sauvegardé s'il contient un site existant
+- [ ] Nom de domaine pointé sur l'hébergement
+- [ ] Clé SSH déposée, connexion testée : `ssh -p 65002 uXXXXXXXXX@srv-XXX.hstgr.io`
+- [ ] `mod_headers` actif (il l'est par défaut chez Hostinger)
+
+## 8. Vérifications après mise en ligne
 
 - [ ] `https://` force la redirection depuis `http://`
 - [ ] `curl -sI .../sw.js` renvoie bien `no-store`
@@ -136,7 +214,7 @@ en ligne.
 - [ ] Aucune violation de la politique de sécurité dans la console
 - [ ] Chargement initial sous 3 s en 4G (§6) — à mesurer sur un vrai téléphone
 
-## 8. Retour arrière
+## 9. Retour arrière
 
 Le build est un dossier de fichiers statiques : revenir en arrière consiste à
 republier l'artefact précédent, disponible dans les artefacts GitHub Actions

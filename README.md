@@ -150,13 +150,17 @@ construire l'application.
 ## Déploiement
 
 L'application est entièrement statique : publier `apps/web/dist` derrière du
-HTTPS suffit. Les configurations Apache, Netlify, Cloudflare et nginx sont
-**générées** depuis une source unique (`deploy/headers.mjs`) pour qu'elles ne
-puissent pas diverger, et la CI échoue si elles sont périmées.
+HTTPS suffit. L'hébergement retenu est **Hostinger** (issue #2).
 
 ```bash
-pnpm generate:deploy
+cp .env.deploy.example .env.deploy   # renseigner ses valeurs
+./scripts/deploy-hostinger.sh        # simulation
+./scripts/deploy-hostinger.sh --go   # publication
 ```
+
+Les configurations Apache, Netlify, Cloudflare et nginx sont **générées** depuis
+une source unique (`deploy/headers.mjs`) pour qu'elles ne puissent pas diverger,
+et la CI échoue si elles sont périmées.
 
 Le point sensible est le cycle de vie du service worker : `sw.js` mis en cache
 fige les utilisateurs sur une ancienne version, sans recours puisqu'il n'y a

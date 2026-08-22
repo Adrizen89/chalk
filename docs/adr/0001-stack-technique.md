@@ -31,6 +31,19 @@ Trois contraintes pèsent plus que les autres sur ce choix :
 | Tests            | **Vitest**                                 | Même moteur que Vite, pas de configuration parallèle à maintenir.                                                                                                       |
 | Monorepo         | **pnpm workspaces**                        | Sépare le moteur pur de l'application, et permet de le réutiliser côté serveur.                                                                                         |
 
+### Hébergement
+
+**Hostinger**, décidé le 22 août 2026 (issue [#2](https://github.com/Adrizen89/chalk/issues/2)).
+
+Hébergement déjà en place, datacentres dans l'UE — ce qui règle d'avance la
+contrainte RGPD du §6 pour le serveur du lot 2. L'application étant statique,
+le déploiement se réduit à un envoi `rsync` vers `public_html/`.
+
+Contrepartie acceptée : pas de déploiement continu natif depuis git, contrairement
+à Cloudflare Pages ou Netlify. Un script et un workflow GitHub Actions comblent
+l'écart. Les configurations des trois autres cibles restent générées : changer
+d'avis ne coûterait rien.
+
 ### Back (lot 2, à confirmer)
 
 Orientation, non tranchée tant que le spike temps réel ([#3](https://github.com/Adrizen89/chalk/issues/3)) n'a pas rendu ses mesures :
