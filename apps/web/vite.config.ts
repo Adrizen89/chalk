@@ -120,6 +120,15 @@ export default defineConfig({
   server: {
     // §5 : on teste sur un vrai téléphone, pas seulement sur le poste de dev.
     host: true,
+    /*
+     * Vite refuse par défaut les requêtes dont l'en-tête Host lui est inconnu.
+     * Les tunnels HTTPS servent l'application sous un domaine aléatoire : sans
+     * cette autorisation, le téléphone reçoit un refus sec.
+     *
+     * Uniquement en développement — le build de production ne contient aucun
+     * serveur.
+     */
+    allowedHosts: ['.trycloudflare.com', '.loca.lt', '.ngrok-free.app'],
   },
   preview: {
     host: true,
