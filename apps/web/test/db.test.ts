@@ -16,6 +16,7 @@ import {
   deleteGame,
   findResumableGames,
   getGame,
+  lastGamePlayers,
   listGames,
   pruneOldGames,
   saveGame,
@@ -291,6 +292,51 @@ describe('historique et ménage', () => {
     finie.applyDart(D(20))
     await persist('finie', finie)
     expect(await pruneOldGames(100)).toBe(0)
+  })
+})
+
+describe('derniers joueurs (§4.1, §1)', () => {
+  it('ne propose personne quand aucune partie n’a été jouée', async () => {
+    expect(await lastGamePlayers()).toEqual([])
+  })
+
+  it('rend les joueurs de la dernière partie, dans l’ordre de jeu', async () => {
+    await persist('g1', newSession())
+    expect(await lastGamePlayers()).toEqual(PLAYERS)
+  })
+
+  it('suit la partie touchée en dernier, et non la plus ancienne', async () => {
+    const ancienne = new GameSession(x01Rule, X01_DEFAULT_CONFIG, [
+      { id: 'c', name: 'Claire' },
+      { id: 'd', name: 'Denis' },
+    ])
+    await persist('ancienne', ancienne)
+    await new Promise((resolve) => setTimeout(resolve, 3))
+    await persist('recente', newSession())
+
+    expect((await lastGamePlayers()).map((player) => player.name)).toEqual(['Adrien', 'Bruno'])
+  })
+
+  it('compte une partie reprise après coup comme la plus récente', async () => {
+    await persist('reprise', newSession())
+    await new Promise((resolve) => setTimeout(resolve, 3))
+
+    const autre = new GameSession(x01Rule, X01_DEFAULT_CONFIG, [{ id: 'c', name: 'Claire' }])
+    await persist('autre', autre)
+    await new Promise((resolve) => setTimeout(resolve, 3))
+
+    // On rejoue une volée sur la première : c'est elle qu'on vient de jouer.
+    const reprise = newSession()
+    reprise.applyDart(T(20))
+    await persist('reprise', reprise)
+
+    expect((await lastGamePlayers()).map((player) => player.name)).toEqual(['Adrien', 'Bruno'])
+  })
+
+  it('compte aussi une partie abandonnée : on a bien joué avec ces personnes', async () => {
+    await persist('abandonnee', newSession())
+    await abandonGame('abandonnee')
+    expect((await lastGamePlayers()).map((player) => player.name)).toEqual(['Adrien', 'Bruno'])
   })
 })
 

@@ -34,7 +34,7 @@ import type { OrderMode } from '@/components/MatchOptions.vue'
 import MatchOptions from '@/components/MatchOptions.vue'
 import ResumeCard from '@/components/ResumeCard.vue'
 import type { StoredGame, StoredPlayer } from '@/db'
-import { abandonGame, findResumableGames, requestPersistentStorage } from '@/db'
+import { abandonGame, findResumableGames, lastGamePlayers, requestPersistentStorage } from '@/db'
 import type { InputMode } from '@/composables/useMatch'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { usePlayerBook, avatarColor, initials } from '@/composables/usePlayerBook'
@@ -129,11 +129,40 @@ const selectedPlayers = computed<PlayerRef[]>(() =>
 
 const canStart = computed(() => selectedPlayers.value.length >= 1)
 
+/**
+ * §4.1 et §1 — les joueurs de la dernière partie sont cochés d'avance.
+ *
+ * « On rejoue souvent avec les mêmes personnes » : recocher les mêmes noms à
+ * chaque partie est le geste le plus répété de cet écran, et il se faisait
+ * avant même de pouvoir lancer quoi que ce soit — le bouton restant désactivé
+ * tant que personne n'était sélectionné.
+ *
+ * L'ordre enregistré est conservé : c'est l'ordre de jeu (§4.4), et le rétablir
+ * évite de reconstituer à la main une configuration qu'on vient de jouer.
+ *
+ * Un joueur retiré du carnet entre-temps est simplement ignoré, jamais
+ * ressuscité.
+ */
+async function preselectLastPlayers() {
+  if (selectedIds.value.length > 0) return
+  try {
+    const last = await lastGamePlayers()
+    selectedIds.value = last
+      .map((player) => player.id)
+      .filter((id) => book.value.some((entry) => entry.id === id))
+  } catch (error) {
+    // §2 : ne jamais empêcher de lancer une partie. Au pire, on coche à la main.
+    console.error('Lecture des derniers joueurs impossible', error)
+  }
+}
+
 onMounted(async () => {
   await load()
   await settings.load()
   await favourites.load()
   await refreshResumable()
+  // Après le carnet : on ne coche que des joueurs qui existent encore.
+  await preselectLastPlayers()
   // Demande au navigateur de ne pas évincer nos données sous pression disque :
   // une partie en cours ne doit pas disparaître faute de place (§4.4).
   void requestPersistentStorage()

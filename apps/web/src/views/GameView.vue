@@ -187,7 +187,7 @@ function onTurnTotal(total: number, dartsUsed?: number) {
       <button
         v-if="!isFinished"
         type="button"
-        class="tap px-2 text-xs"
+        class="tap ml-auto px-2 text-xs"
         :class="abandonArmed ? 'bg-bust/15 font-bold text-bust' : 'text-chalk-dim'"
         :aria-label="
           abandonArmed
@@ -197,23 +197,6 @@ function onTurnTotal(total: number, dartsUsed?: number) {
         @click="onAbandon()"
       >
         {{ abandonArmed ? 'Confirmer ?' : 'Abandonner' }}
-      </button>
-      <!-- §4.3 : bouton Annuler toujours accessible. -->
-      <button
-        type="button"
-        class="tap ml-auto bg-slate-surface px-3 text-sm text-chalk disabled:opacity-30"
-        :disabled="!canUndo"
-        @click="undo()"
-      >
-        ↶ Annuler
-      </button>
-      <button
-        type="button"
-        class="tap bg-slate-surface px-3 text-xs text-chalk-dim disabled:opacity-30"
-        :disabled="!canUndo"
-        @click="undoTurn()"
-      >
-        Volée
       </button>
     </header>
 
@@ -235,15 +218,62 @@ function onTurnTotal(total: number, dartsUsed?: number) {
              `shrink-0` et hors de la zone qui défile : à trois joueurs ou
              plus, c'est le tableau qui défile, jamais le rappel qui se coupe
              au milieu d'une ligne. -->
-        <!-- En paysage, cette colonne descend jusqu'au bas de l'écran : le
-             rappel est alors le dernier élément, et doit dégager la zone sûre
-             lui-même (§3.2). En portrait, le pavé de saisie s'en charge. -->
-        <RecentTurns
-          v-if="recentTurns.length > 0"
-          :turns="recentTurns"
-          :show-total="baseRule === 'x01'"
-          class="shrink-0 pt-3 sm:landscape:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-        />
+        <!-- §4.3 et §5 — ce que je viens de saisir, et de quoi le défaire.
+             Les deux vont ensemble : le bouton d'annulation est posé contre la
+             liste de ce qu'il annulerait.
+             Il vivait jusqu'ici dans le bandeau du haut, hors de portée du
+             pouce d'une main qui tient le téléphone, alors que §4.3 le veut
+             « toujours accessible ». Il atterrit ici contre le pavé de saisie,
+             à la frontière des deux zones : pas tout à fait la moitié basse
+             que §5 réserve aux actions — la mesure le place juste au-dessus du
+             milieu, sur un grand écran comme sur un petit — mais la position
+             la plus basse qui ne prenne pas de hauteur au pavé.
+             Car cette rangée ne coûte rien : le bouton est moins haut que les
+             trois lignes de rappel qu'il côtoie. La descendre davantage
+             signifierait repousser le pavé, donc rogner le score.
+             En paysage, cette colonne descend jusqu'au bas de l'écran : elle
+             dégage alors la zone sûre elle-même (§3.2). En portrait, le pavé
+             de saisie s'en charge. -->
+        <div
+          class="flex shrink-0 items-end gap-2 pt-3 sm:landscape:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          <RecentTurns
+            v-if="recentTurns.length > 0"
+            :turns="recentTurns"
+            :show-total="baseRule === 'x01'"
+            class="min-w-0 flex-1"
+          />
+          <div v-else class="flex-1"></div>
+
+          <div class="flex shrink-0 gap-1.5">
+            <button
+              type="button"
+              class="tap bg-slate-surface px-3 text-xs text-chalk disabled:opacity-30"
+              :disabled="!canUndo"
+              :aria-label="
+                effectiveInputMode === 'dart'
+                  ? 'Annuler la dernière fléchette'
+                  : 'Annuler la dernière volée'
+              "
+              @click="undo()"
+            >
+              ↶ {{ effectiveInputMode === 'dart' ? 'Fléchette' : 'Annuler' }}
+            </button>
+            <!-- En saisie par volée, une entrée *est* une volée : `undoTurn`
+                 y ferait exactement la même chose que `undo`. Deux boutons
+                 identiques valaient mieux disparaître. -->
+            <button
+              v-if="effectiveInputMode === 'dart'"
+              type="button"
+              class="tap bg-slate-surface px-3 text-xs text-chalk-dim disabled:opacity-30"
+              :disabled="!canUndo"
+              aria-label="Annuler la volée entière"
+              @click="undoTurn()"
+            >
+              ↶ Volée
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- La saisie occupe la moitié basse en portrait, la colonne droite en

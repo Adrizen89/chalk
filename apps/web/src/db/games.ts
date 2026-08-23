@@ -7,7 +7,7 @@
  * Une sortie propre, sur une batterie vide, n'arrive jamais.
  */
 
-import type { GameSnapshot, GameStats, PlayerId } from '@chalk/core'
+import type { GameSnapshot, GameStats, PlayerId, PlayerRef } from '@chalk/core'
 import { computeGameStats, findRule } from '@chalk/core'
 import { db, isQuotaError } from './database.js'
 import { toStorable } from './storable.js'
@@ -110,6 +110,27 @@ export async function findResumableGames(limit = 5): Promise<StoredGame[]> {
     .reverse()
     .sortBy('updatedAt')
   return games.slice(0, limit)
+}
+
+/**
+ * Joueurs de la dernière partie — §4.1 et §1.
+ *
+ * « On rejoue souvent avec les mêmes personnes » : recocher les mêmes noms est
+ * le geste le plus répété de l'écran de configuration, et donc le premier
+ * coupable quand on rate les 15 secondes du §1.
+ *
+ * On lit la partie, et non le carnet : l'enregistrement conserve **l'ordre**
+ * des joueurs, qui est l'ordre de jeu (§4.4). Le carnet, lui, est trié par
+ * usage récent et l'aurait perdu.
+ *
+ * Le tri sur `updatedAt` répond bien à « avec qui ai-je joué en dernier ? » et
+ * non « quelle partie ai-je créée en dernier » : une partie reprise après coup
+ * remonte, ce qui est le comportement attendu. Une partie abandonnée compte
+ * aussi — on a joué avec ces personnes, quoi qu'il soit advenu de la partie.
+ */
+export async function lastGamePlayers(): Promise<readonly PlayerRef[]> {
+  const [last] = await db().games.orderBy('updatedAt').reverse().limit(1).toArray()
+  return last?.players ?? []
 }
 
 export async function getGame(id: string): Promise<StoredGame | undefined> {
