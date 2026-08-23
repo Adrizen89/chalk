@@ -737,8 +737,38 @@ function startAfterBullOff(winnerId: string) {
       {{ rule.label }} exige la saisie fléchette par fléchette.
     </p>
 
+    <!-- §4.9 — mémoriser cette configuration pour la relancer en un tap.
+         Hors de la barre collante : action secondaire, qui n'a pas à manger
+         le bas de l'écran pendant tout le réglage de la partie. -->
+    <button
+      v-if="!awaitingBullOff"
+      type="button"
+      class="tap h-10 w-full text-xs text-chalk-dim disabled:opacity-30"
+      :disabled="!canStart"
+      @click="saveFavourite()"
+    >
+      ☆ Enregistrer dans les favoris
+    </button>
+
+    <!-- §3.2 : point d'entrée permanent et discret, même après un refus de
+         l'invitation — l'application n'étant sur aucun store, c'est le seul
+         chemin vers l'installation. Placé avant la zone d'action : rien ne
+         doit se retrouver caché sous une barre collée au bas de l'écran. -->
+    <button
+      v-if="!install.installed.value && !install.shouldOffer.value"
+      type="button"
+      class="text-center text-xs text-chalk-dim underline underline-offset-2"
+      @click="install.offerAgain()"
+    >
+      Installer Chalk sur cet appareil
+    </button>
+
     <!-- §5 : l'action principale reste en bas de l'écran, sous le pouce. -->
-    <div class="mt-auto">
+    <!-- Le dégradé au-dessus montre que le contenu passe *sous* la barre :
+         sans lui, la coupure nette se lit comme un défaut d'affichage. -->
+    <div
+      class="safe-bottom sticky bottom-0 mt-auto -mx-4 bg-slate-board px-4 pt-2 sm:landscape:pt-1 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-linear-to-t before:from-slate-board before:to-transparent"
+    >
       <!-- §4.4 — le bull-off se joue sur la cible : l'application ne peut que
            demander qui l'a gagné. -->
       <div v-if="awaitingBullOff" class="rounded-2xl border border-accent/50 bg-accent/10 p-3">
@@ -770,37 +800,23 @@ function startAfterBullOff(winnerId: string) {
       </div>
 
       <template v-else>
+        <!-- §1 — un bouton grisé sans explication laisse chercher. Il ne manque
+             jamais qu'une chose pour lancer une partie : quelqu'un pour la
+             jouer. Autant le dire. -->
+        <p v-if="!canStart" class="pb-2 text-center text-xs text-chalk-dim" role="status">
+          Choisir au moins un joueur pour commencer
+        </p>
+        <!-- Plus ramassé en paysage : la barre est collée en permanence, et la
+             hauteur y est la ressource rare. -->
         <button
           type="button"
-          class="tap h-16 w-full bg-accent text-lg font-bold text-on-accent disabled:opacity-30"
+          class="tap h-16 w-full bg-accent text-lg font-bold text-on-accent disabled:opacity-30 sm:landscape:h-12 sm:landscape:text-base"
           :disabled="!canStart"
           @click="start()"
         >
           Lancer la partie
         </button>
-        <!-- §4.9 — mémoriser cette configuration pour la relancer en un tap. -->
-        <button
-          type="button"
-          class="tap mt-2 h-10 w-full text-xs text-chalk-dim disabled:opacity-30"
-          :disabled="!canStart"
-          @click="saveFavourite()"
-        >
-          ☆ Enregistrer dans les favoris
-        </button>
       </template>
     </div>
-
-    <!-- §3.2 : point d'entrée permanent et discret, même après un refus de
-         l'invitation — l'application n'étant sur aucun store, c'est le seul
-         chemin vers l'installation. -->
-    <button
-      v-if="!install.installed.value && !install.shouldOffer.value"
-      type="button"
-      class="safe-bottom text-center text-xs text-chalk-dim underline underline-offset-2"
-      @click="install.offerAgain()"
-    >
-      Installer Chalk sur cet appareil
-    </button>
-    <div v-else class="safe-bottom" />
   </div>
 </template>

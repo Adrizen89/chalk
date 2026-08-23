@@ -61,6 +61,44 @@ const feedback = useFeedback()
 onMounted(() => void wakeLock.request())
 onUnmounted(() => void wakeLock.release())
 
+/**
+ * §4.4, §5 — l'abandon demande deux gestes.
+ *
+ * Abandonner retire définitivement la partie des reprises proposées, et le
+ * bouton vit dans le bandeau du haut, à portée d'un faux contact — on manipule
+ * l'écran debout, parfois d'une main, les fléchettes dans l'autre. Un tap
+ * suffisait à perdre le leg en cours.
+ *
+ * Ce n'est pas une fenêtre de confirmation : §5 les interdit pendant une
+ * partie. Le bouton s'arme, annonce ce qu'il va faire, et se désarme tout seul
+ * — au bout de quelques secondes, ou dès que la partie reprend son cours.
+ * L'écran ne se bloque à aucun moment.
+ */
+const abandonArmed = ref(false)
+let abandonTimer: ReturnType<typeof setTimeout> | undefined
+
+/** Laissé assez long pour lire, assez court pour ne pas rester armé par oubli. */
+const ABANDON_ARMED_MS = 4000
+
+function onAbandon() {
+  if (abandonArmed.value) {
+    disarmAbandon()
+    void abandon()
+    return
+  }
+  abandonArmed.value = true
+  clearTimeout(abandonTimer)
+  abandonTimer = setTimeout(() => (abandonArmed.value = false), ABANDON_ARMED_MS)
+}
+
+/** Une fléchette de plus, c'est la preuve qu'on ne voulait pas abandonner. */
+function disarmAbandon() {
+  clearTimeout(abandonTimer)
+  abandonArmed.value = false
+}
+
+onUnmounted(() => clearTimeout(abandonTimer))
+
 const error = ref<string | null>(null)
 /** §4.9 — annonce des 180 et fin de leg, en bandeau non bloquant. */
 const banner = ref<string | null>(null)
@@ -115,10 +153,12 @@ function announce(message: string) {
 }
 
 function onDart(dart: Dart) {
+  disarmAbandon()
   error.value = throwDart(dart)
 }
 
 function onTurnTotal(total: number, dartsUsed?: number) {
+  disarmAbandon()
   error.value = submitTurnTotal(total, dartsUsed)
 }
 </script>
@@ -141,14 +181,22 @@ function onTurnTotal(total: number, dartsUsed?: number) {
         {{ rule?.label }}
       </span>
       <!-- §4.4 : quitter conserve la partie, l'abandonner la retire des
-           reprises proposées. Deux gestes distincts, volontairement. -->
+           reprises proposées. Deux gestes distincts, volontairement.
+           Armé, le bouton prend la couleur du bust : c'est déjà celle que
+           l'application emploie pour « ce que vous venez de faire coûte cher ». -->
       <button
         v-if="!isFinished"
         type="button"
-        class="tap px-2 text-xs text-chalk-dim"
-        @click="abandon()"
+        class="tap px-2 text-xs"
+        :class="abandonArmed ? 'bg-bust/15 font-bold text-bust' : 'text-chalk-dim'"
+        :aria-label="
+          abandonArmed
+            ? 'Confirmer : la partie sera abandonnée'
+            : 'Abandonner la partie, en deux gestes'
+        "
+        @click="onAbandon()"
       >
-        Abandonner
+        {{ abandonArmed ? 'Confirmer ?' : 'Abandonner' }}
       </button>
       <!-- §4.3 : bouton Annuler toujours accessible. -->
       <button
