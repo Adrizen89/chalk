@@ -36,6 +36,24 @@ const problem = computed<string | null>(() => {
 const canSubmit = computed(() => total.value !== null && problem.value === null)
 
 /**
+ * §1 — score restant si la volée est validée.
+ *
+ * En saisie par volée, le tableau de score ne bouge pas tant qu'on n'a pas
+ * validé : le joueur fait la soustraction de tête, ce que le cahier des
+ * charges cherche précisément à lui épargner. En saisie fléchette par
+ * fléchette, le tableau se met à jour à chaque fléchette — l'aperçu n'y aurait
+ * rien à apprendre, d'où son absence du `DartPad`.
+ *
+ * Aucune règle n'est rejouée ici : on soustrait, c'est tout. Savoir si le
+ * score obtenu est jouable — laisser 1 en double out, par exemple — reste
+ * l'affaire du moteur, qui le dira au moment de la validation.
+ */
+const preview = computed<number | null>(() => {
+  if (props.remaining === undefined || total.value === null || problem.value !== null) return null
+  return props.remaining - total.value
+})
+
+/**
  * §4.4 — la volée gagnante peut ne compter qu'une ou deux fléchettes. Sans
  * cette précision, la statistique « meilleur leg » est fausse.
  */
@@ -72,6 +90,13 @@ function shortcut(value: number) {
       <span class="text-xs text-chalk-dim">Total de la volée</span>
       <span class="num ml-auto text-3xl font-bold" :class="problem ? 'text-bust' : 'text-chalk'">
         {{ draft || '—' }}
+      </span>
+      <!-- §1 — le restant après validation, pour supprimer le calcul mental.
+           Discret : c'est une conséquence, pas la valeur qu'on saisit. -->
+      <span v-if="preview !== null" class="num shrink-0 text-lg font-semibold text-chalk-dim">
+        <span aria-hidden="true">→</span>
+        <span class="sr-only">restera</span>
+        {{ preview }}
       </span>
     </div>
 

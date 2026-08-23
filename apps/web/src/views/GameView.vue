@@ -19,6 +19,7 @@ import type { Dart } from '@chalk/core'
 import CheckoutHint from '@/components/CheckoutHint.vue'
 import CricketMarks from '@/components/CricketMarks.vue'
 import DartPad from '@/components/DartPad.vue'
+import RecentTurns from '@/components/RecentTurns.vue'
 import ScoreBoard from '@/components/ScoreBoard.vue'
 import TurnDarts from '@/components/TurnDarts.vue'
 import TurnTotalPad from '@/components/TurnTotalPad.vue'
@@ -37,6 +38,7 @@ const {
   winner,
   canUndo,
   checkout,
+  recentTurns,
   effectiveInputMode,
   lastEffects,
   throwDart,
@@ -172,9 +174,28 @@ function onTurnTotal(total: number, dartsUsed?: number) {
     <div class="flex min-h-0 flex-1 flex-col sm:landscape:flex-row sm:landscape:gap-4">
       <!-- Zone d'information : elle cède la place au pavé de saisie si l'écran
            est petit, plutôt que de le repousser hors de portée du pouce. -->
-      <div class="min-h-0 flex-1 overflow-y-auto">
-        <ScoreBoard :view="view" :dense="hasOwnBoard" />
-        <CricketMarks v-if="baseRule === 'cricket'" :view="view" class="mt-2" />
+      <div class="flex min-h-0 flex-1 flex-col">
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <ScoreBoard :view="view" :dense="hasOwnBoard" />
+          <CricketMarks v-if="baseRule === 'cricket'" :view="view" class="mt-2" />
+        </div>
+
+        <!-- §4.3 — rappel des dernières volées, ancré au bas de la zone
+             d'information : il occupe l'espace qui restait vide entre le
+             tableau et le pavé, et se retrouve au plus près du regard qui
+             vient de valider.
+             `shrink-0` et hors de la zone qui défile : à trois joueurs ou
+             plus, c'est le tableau qui défile, jamais le rappel qui se coupe
+             au milieu d'une ligne. -->
+        <!-- En paysage, cette colonne descend jusqu'au bas de l'écran : le
+             rappel est alors le dernier élément, et doit dégager la zone sûre
+             lui-même (§3.2). En portrait, le pavé de saisie s'en charge. -->
+        <RecentTurns
+          v-if="recentTurns.length > 0"
+          :turns="recentTurns"
+          :show-total="baseRule === 'x01'"
+          class="shrink-0 pt-3 sm:landscape:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        />
       </div>
 
       <!-- La saisie occupe la moitié basse en portrait, la colonne droite en
