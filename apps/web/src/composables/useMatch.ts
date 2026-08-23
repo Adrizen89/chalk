@@ -17,15 +17,55 @@
  */
 
 import { computed, ref, shallowRef } from 'vue'
-import type { AnyGameRule, Dart, GameEffect, GameSnapshot, GameView, PlayerRef } from '@chalk/core'
+import type {
+  AnyGameRule,
+  Dart,
+  GameEffect,
+  GameSnapshot,
+  GameView,
+  PlayerId,
+  PlayerRef,
+} from '@chalk/core'
 import type { X01State } from '@chalk/core'
-import { GameSession, baseRuleId, findRule, legStateOf, suggestCheckout } from '@chalk/core'
+import {
+  GameSession,
+  baseRuleId,
+  dartValue,
+  findRule,
+  legStateOf,
+  suggestCheckout,
+} from '@chalk/core'
 import { StorageFullError, abandonGame, markPlayed, saveGame } from '@/db'
 import { randomId } from '@/lib/id'
 import type { StoredGame } from '@/db'
 
 /** §4.3 — deux modes de saisie, choisis dans les réglages. */
 export type InputMode = 'turn' | 'dart'
+
+/**
+ * Nombre de volées rappelées sous le tableau de score.
+ *
+ * Trois : de quoi contrôler la saisie qu'on vient de faire et celle d'avant,
+ * sans transformer l'écran de partie en historique.
+ */
+const RECENT_TURNS = 3
+
+/**
+ * Une volée terminée, telle qu'on la rappelle à l'écran.
+ *
+ * Le total vient de l'effet `turn-ended`, donc du moteur : l'interface ne
+ * recompte rien, exactement comme les statistiques du §4.7. Une volée qui
+ * gagne le leg fait exception — elle s'arrête sur `leg-won` sans passer par
+ * `turn-ended` — d'où le repli sur les entrées elles-mêmes.
+ */
+export interface RecentTurn {
+  readonly playerId: PlayerId
+  readonly name: string
+  readonly total: number
+  readonly bust: boolean
+  /** Détail des fléchettes. Vide en saisie par volée, qui n'en connaît aucune. */
+  readonly darts: readonly Dart[]
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySession = GameSession<any, any>
@@ -135,6 +175,76 @@ export function useMatch() {
   const effectiveInputMode = computed<InputMode>(() =>
     requiresDartDetail.value ? 'dart' : inputMode.value,
   )
+
+  /**
+   * §4.3, §5 — rappel des dernières volées validées.
+   *
+   * En saisie par volée, le score saisi disparaît à la validation : il ne
+   * reste que le score restant. Or la question qui revient sans arrêt quand on
+   * marque pour les autres est « j'ai bien mis 60 ? ». Sans ce rappel, la
+   * seule façon de vérifier est d'annuler — c'est-à-dire de défaire
+   * précisément ce qu'on voulait contrôler.
+   *
+   * La projection se fait depuis le journal d'entrées, comme les statistiques
+   * (§4.7). Une volée annulée ou corrigée disparaît donc du rappel sans aucun
+   * traitement particulier : elle n'est plus dans le journal.
+   */
+  const recentTurns = computed<RecentTurn[]>(() => {
+    trackSession()
+    const current = session.value
+    if (!current) return []
+
+    const names = new Map(
+      (view.value?.players ?? []).map((player) => [player.playerId, player.name] as const),
+    )
+
+    const turns: RecentTurn[] = []
+    let darts: Dart[] = []
+    let scored = 0
+    let playerId: PlayerId | null = null
+
+    for (const recorded of current.history) {
+      playerId ??= recorded.playerId
+      if (recorded.input.kind === 'dart') {
+        darts.push(recorded.input.dart)
+        scored += dartValue(recorded.input.dart)
+      } else {
+        scored += recorded.input.total
+      }
+
+      const ended = recorded.effects.find(
+        (effect): effect is Extract<GameEffect, { type: 'turn-ended' }> =>
+          effect.type === 'turn-ended',
+      )
+      const bust = recorded.effects.some((effect) => effect.type === 'bust')
+      /*
+       * Une volée qui gagne le leg s'arrête sur `leg-won` sans émettre
+       * `turn-ended`. Sans ce cas, la volée la plus intéressante de la partie
+       * serait la seule à ne pas apparaître.
+       */
+      const won = recorded.effects.some(
+        (effect) => effect.type === 'leg-won' || effect.type === 'game-won',
+      )
+      if (!ended && !bust && !won) continue
+
+      if (playerId !== null) {
+        turns.push({
+          playerId,
+          name: names.get(playerId) ?? '',
+          // Une volée bustée ne marque rien, y compris ce qui l'avait été avant.
+          total: bust ? 0 : (ended?.total ?? scored),
+          bust,
+          darts,
+        })
+      }
+
+      darts = []
+      scored = 0
+      playerId = null
+    }
+
+    return turns.slice(-RECENT_TURNS)
+  })
 
   function start(
     gameRule: AnyGameRule,
@@ -268,6 +378,7 @@ export function useMatch() {
     winner,
     canUndo,
     checkout,
+    recentTurns,
     lastEffects,
     storageError,
     inputMode,

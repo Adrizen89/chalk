@@ -19,6 +19,7 @@ import type { Dart } from '@chalk/core'
 import CheckoutHint from '@/components/CheckoutHint.vue'
 import CricketMarks from '@/components/CricketMarks.vue'
 import DartPad from '@/components/DartPad.vue'
+import RecentTurns from '@/components/RecentTurns.vue'
 import ScoreBoard from '@/components/ScoreBoard.vue'
 import TurnDarts from '@/components/TurnDarts.vue'
 import TurnTotalPad from '@/components/TurnTotalPad.vue'
@@ -37,6 +38,7 @@ const {
   winner,
   canUndo,
   checkout,
+  recentTurns,
   effectiveInputMode,
   lastEffects,
   throwDart,
@@ -58,6 +60,44 @@ const wakeLock = useWakeLock()
 const feedback = useFeedback()
 onMounted(() => void wakeLock.request())
 onUnmounted(() => void wakeLock.release())
+
+/**
+ * §4.4, §5 — l'abandon demande deux gestes.
+ *
+ * Abandonner retire définitivement la partie des reprises proposées, et le
+ * bouton vit dans le bandeau du haut, à portée d'un faux contact — on manipule
+ * l'écran debout, parfois d'une main, les fléchettes dans l'autre. Un tap
+ * suffisait à perdre le leg en cours.
+ *
+ * Ce n'est pas une fenêtre de confirmation : §5 les interdit pendant une
+ * partie. Le bouton s'arme, annonce ce qu'il va faire, et se désarme tout seul
+ * — au bout de quelques secondes, ou dès que la partie reprend son cours.
+ * L'écran ne se bloque à aucun moment.
+ */
+const abandonArmed = ref(false)
+let abandonTimer: ReturnType<typeof setTimeout> | undefined
+
+/** Laissé assez long pour lire, assez court pour ne pas rester armé par oubli. */
+const ABANDON_ARMED_MS = 4000
+
+function onAbandon() {
+  if (abandonArmed.value) {
+    disarmAbandon()
+    void abandon()
+    return
+  }
+  abandonArmed.value = true
+  clearTimeout(abandonTimer)
+  abandonTimer = setTimeout(() => (abandonArmed.value = false), ABANDON_ARMED_MS)
+}
+
+/** Une fléchette de plus, c'est la preuve qu'on ne voulait pas abandonner. */
+function disarmAbandon() {
+  clearTimeout(abandonTimer)
+  abandonArmed.value = false
+}
+
+onUnmounted(() => clearTimeout(abandonTimer))
 
 const error = ref<string | null>(null)
 /** §4.9 — annonce des 180 et fin de leg, en bandeau non bloquant. */
@@ -113,10 +153,12 @@ function announce(message: string) {
 }
 
 function onDart(dart: Dart) {
+  disarmAbandon()
   error.value = throwDart(dart)
 }
 
 function onTurnTotal(total: number, dartsUsed?: number) {
+  disarmAbandon()
   error.value = submitTurnTotal(total, dartsUsed)
 }
 </script>
@@ -139,31 +181,22 @@ function onTurnTotal(total: number, dartsUsed?: number) {
         {{ rule?.label }}
       </span>
       <!-- §4.4 : quitter conserve la partie, l'abandonner la retire des
-           reprises proposées. Deux gestes distincts, volontairement. -->
+           reprises proposées. Deux gestes distincts, volontairement.
+           Armé, le bouton prend la couleur du bust : c'est déjà celle que
+           l'application emploie pour « ce que vous venez de faire coûte cher ». -->
       <button
         v-if="!isFinished"
         type="button"
-        class="tap px-2 text-xs text-chalk-dim"
-        @click="abandon()"
+        class="tap ml-auto px-2 text-xs"
+        :class="abandonArmed ? 'bg-bust/15 font-bold text-bust' : 'text-chalk-dim'"
+        :aria-label="
+          abandonArmed
+            ? 'Confirmer : la partie sera abandonnée'
+            : 'Abandonner la partie, en deux gestes'
+        "
+        @click="onAbandon()"
       >
-        Abandonner
-      </button>
-      <!-- §4.3 : bouton Annuler toujours accessible. -->
-      <button
-        type="button"
-        class="tap ml-auto bg-slate-surface px-3 text-sm text-chalk disabled:opacity-30"
-        :disabled="!canUndo"
-        @click="undo()"
-      >
-        ↶ Annuler
-      </button>
-      <button
-        type="button"
-        class="tap bg-slate-surface px-3 text-xs text-chalk-dim disabled:opacity-30"
-        :disabled="!canUndo"
-        @click="undoTurn()"
-      >
-        Volée
+        {{ abandonArmed ? 'Confirmer ?' : 'Abandonner' }}
       </button>
     </header>
 
@@ -172,9 +205,75 @@ function onTurnTotal(total: number, dartsUsed?: number) {
     <div class="flex min-h-0 flex-1 flex-col sm:landscape:flex-row sm:landscape:gap-4">
       <!-- Zone d'information : elle cède la place au pavé de saisie si l'écran
            est petit, plutôt que de le repousser hors de portée du pouce. -->
-      <div class="min-h-0 flex-1 overflow-y-auto">
-        <ScoreBoard :view="view" :dense="hasOwnBoard" />
-        <CricketMarks v-if="baseRule === 'cricket'" :view="view" class="mt-2" />
+      <div class="flex min-h-0 flex-1 flex-col">
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <ScoreBoard :view="view" :dense="hasOwnBoard" />
+          <CricketMarks v-if="baseRule === 'cricket'" :view="view" class="mt-2" />
+        </div>
+
+        <!-- §4.3 — rappel des dernières volées, ancré au bas de la zone
+             d'information : il occupe l'espace qui restait vide entre le
+             tableau et le pavé, et se retrouve au plus près du regard qui
+             vient de valider.
+             `shrink-0` et hors de la zone qui défile : à trois joueurs ou
+             plus, c'est le tableau qui défile, jamais le rappel qui se coupe
+             au milieu d'une ligne. -->
+        <!-- §4.3 et §5 — ce que je viens de saisir, et de quoi le défaire.
+             Les deux vont ensemble : le bouton d'annulation est posé contre la
+             liste de ce qu'il annulerait.
+             Il vivait jusqu'ici dans le bandeau du haut, hors de portée du
+             pouce d'une main qui tient le téléphone, alors que §4.3 le veut
+             « toujours accessible ». Il atterrit ici contre le pavé de saisie,
+             à la frontière des deux zones : pas tout à fait la moitié basse
+             que §5 réserve aux actions — la mesure le place juste au-dessus du
+             milieu, sur un grand écran comme sur un petit — mais la position
+             la plus basse qui ne prenne pas de hauteur au pavé.
+             Car cette rangée ne coûte rien : le bouton est moins haut que les
+             trois lignes de rappel qu'il côtoie. La descendre davantage
+             signifierait repousser le pavé, donc rogner le score.
+             En paysage, cette colonne descend jusqu'au bas de l'écran : elle
+             dégage alors la zone sûre elle-même (§3.2). En portrait, le pavé
+             de saisie s'en charge. -->
+        <div
+          class="flex shrink-0 items-end gap-2 pt-3 sm:landscape:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          <RecentTurns
+            v-if="recentTurns.length > 0"
+            :turns="recentTurns"
+            :show-total="baseRule === 'x01'"
+            class="min-w-0 flex-1"
+          />
+          <div v-else class="flex-1"></div>
+
+          <div class="flex shrink-0 gap-1.5">
+            <button
+              type="button"
+              class="tap bg-slate-surface px-3 text-xs text-chalk disabled:opacity-30"
+              :disabled="!canUndo"
+              :aria-label="
+                effectiveInputMode === 'dart'
+                  ? 'Annuler la dernière fléchette'
+                  : 'Annuler la dernière volée'
+              "
+              @click="undo()"
+            >
+              ↶ {{ effectiveInputMode === 'dart' ? 'Fléchette' : 'Annuler' }}
+            </button>
+            <!-- En saisie par volée, une entrée *est* une volée : `undoTurn`
+                 y ferait exactement la même chose que `undo`. Deux boutons
+                 identiques valaient mieux disparaître. -->
+            <button
+              v-if="effectiveInputMode === 'dart'"
+              type="button"
+              class="tap bg-slate-surface px-3 text-xs text-chalk-dim disabled:opacity-30"
+              :disabled="!canUndo"
+              aria-label="Annuler la volée entière"
+              @click="undoTurn()"
+            >
+              ↶ Volée
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- La saisie occupe la moitié basse en portrait, la colonne droite en

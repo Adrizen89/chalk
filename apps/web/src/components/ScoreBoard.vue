@@ -9,10 +9,11 @@
  * Le composant ne connaît aucune règle : il affiche une `GameView` (§4.2).
  * C'est ce qui lui permet de servir X01, Cricket, Killer et Around the Clock.
  */
+import { nextTick, ref, watch } from 'vue'
 import type { GameView } from '@chalk/core'
 import { avatarColor, initials } from '@/composables/usePlayerBook'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     view: GameView
     /**
@@ -24,14 +25,37 @@ withDefaults(
   }>(),
   { dense: false },
 )
+
+/**
+ * §5 — la carte du joueur actif reste visible.
+ *
+ * La zone d'information défile dès que le tableau dépasse la place
+ * disponible : quatre joueurs, ou deux joueurs et une suggestion de sortie sur
+ * un petit écran. Sans ce recentrage, c'est le score le plus gros de l'écran —
+ * celui de la personne dont c'est le tour — qui passe hors champ.
+ *
+ * `block: 'nearest'` déplace le strict minimum, et seulement l'ascendant qui
+ * défile : la page, elle, ne bouge pas. Défilement instantané, jamais animé :
+ * §5 interdit toute animation qui retarderait la saisie suivante.
+ */
+const root = ref<HTMLElement | null>(null)
+
+watch(
+  () => props.view.activePlayerId,
+  async () => {
+    await nextTick()
+    root.value?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' })
+  },
+)
 </script>
 
 <template>
-  <div v-if="dense" class="grid grid-cols-2 gap-2" role="list">
+  <div v-if="dense" ref="root" class="grid grid-cols-2 gap-2" role="list">
     <div
       v-for="player in view.players"
       :key="player.playerId"
       role="listitem"
+      :data-active="player.isActive"
       class="flex items-center gap-2 rounded-xl border px-2 py-1.5"
       :class="
         player.isActive ? 'border-accent/70 bg-accent/10' : 'border-slate-line bg-slate-surface/60'
@@ -61,6 +85,7 @@ withDefaults(
 
   <div
     v-else
+    ref="root"
     class="grid gap-2"
     :class="view.players.length > 2 ? 'grid-cols-2' : 'grid-cols-1'"
     role="list"
@@ -69,6 +94,7 @@ withDefaults(
       v-for="player in view.players"
       :key="player.playerId"
       role="listitem"
+      :data-active="player.isActive"
       class="rounded-2xl border px-4 py-3 transition-colors"
       :class="
         player.isActive ? 'border-accent/70 bg-accent/10' : 'border-slate-line bg-slate-surface/60'
